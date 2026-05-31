@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>Hortifruti - Fidelidade e Sorteios</title>
+
+    <!-- Firebase SDKs (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            margin: 0;
+            padding: 16px;
+            padding-bottom: 80px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            background: linear-gradient(135deg, #2e7d32, #f9a825);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-size: 1.8rem;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #558b2f;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        .auth-area {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .auth-btn {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid #c8e6c9;
+            border-radius: 40px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            border-radius: 60px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(46,125,50,0.3);
+        }
+        .tab-btn {
+            flex: 1;
+            background: #f1f8e9;
+            border: none;
+            padding: 10px 6px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.3s;
+            color: #33691e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #4caf50, #f9a825);
+            color: white;
+            box-shadow: 0 2px 8px rgba(76,175,80,0.4);
+        }
+        .panel {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 32px;
+            padding: 20px 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border: 1px solid rgba(76,175,80,0.3);
+        }
+        .panel.active-panel {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h2 {
+            font-size: 1.4rem;
+            margin-top: 0;
+            margin-bottom: 18px;
+            background: linear-gradient(135deg, #2e7d32, #f9a825);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            padding-left: 14px;
+            border-left: 5px solid #f9a825;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .eye-button {
+            background: #f1f8e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 40px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #2e7d32;
+        }
+        .contador {
+            background: #f1f8e9;
+            border-radius: 60px;
+            padding: 8px 16px;
+            margin-bottom: 15px;
+            display: inline-block;
+            font-weight: bold;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: #2e7d32;
+        }
+        input, select, button, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 30px;
+            border: 1px solid #c8e6c9;
+            font-size: 1rem;
+            margin-top: 8px;
+            background: white;
+        }
+        button {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.02); }
+        button.secondary { background: linear-gradient(135deg, #ff9800, #f57c00); }
+        button.danger { background: linear-gradient(135deg, #ef5350, #e53935); }
+        button.success { background: linear-gradient(135deg, #66bb6a, #43a047); }
+        .owner-only { display: none; }
+        .lista-item {
+            background: linear-gradient(135deg, #ffffff, #f9fbe7);
+            border-radius: 20px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            border-left: 6px solid #f9a825;
+        }
+        .cliente-info { font-weight: bold; color: #2e7d32; }
+        .cliente-detalhes { font-size: 0.8rem; color: #6b4c1a; margin-top: 4px; }
+        .flex-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .search-container {
+            display: flex;
+            gap: 8px;
+            background: #f1f8e9;
+            border-radius: 60px;
+            padding: 5px 10px;
+            margin-bottom: 15px;
+        }
+        .search-container input { flex: 1; margin: 0; background: white; border: none; padding: 10px 15px; border-radius: 40px; }
+        .search-container button { width: auto; margin: 0; padding: 10px 15px; background: #f9a825; }
+        .sort-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .sort-buttons button {
+            flex: 1;
+            margin-top: 0;
+            font-size: 0.75rem;
+            padding: 8px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .sort-buttons button.active-sort {
+            background: #2e7d32;
+            color: white;
+            border: none;
+        }
+        .empty-message { text-align: center; color: #8d6e63; padding: 30px 0; font-style: italic; }
+        .modal, .modal-csv {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-content, .modal-csv-content {
+            background: white;
+            border-radius: 32px;
+            max-width: 95%;
+            width: 400px;
+            padding: 20px;
+            border: 2px solid #f9a825;
+        }
+        .modal-csv-content { width: 90%; max-height: 80%; overflow: auto; }
+        .modal-csv-content textarea { width: 100%; height: 300px; font-family: monospace; font-size: 12px; }
+        .search-box { position: relative; }
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0; right: 0;
+            background: white;
+            border: 1px solid #c8e6c9;
+            border-radius: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .search-suggestions div { padding: 10px; cursor: pointer; border-bottom: 1px solid #e8f5e9; }
+        .search-suggestions div:hover { background: #f1f8e9; }
+        @media (max-width: 500px) {
+            body { padding: 12px; }
+            .tab-btn { font-size: 0.6rem; padding: 8px 2px; }
+        }
+
+        /* Tela de login inicial */
+        .login-screen {
+            background: white;
+            border-radius: 32px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .login-screen h2 {
+            text-align: center;
+            border-left: none;
+            padding-left: 0;
+        }
+        .login-screen input {
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1><span>🌿</span> Hortifruti Cupons <span>🍎</span></h1>
+        <div class="subtitle">🍅 Fidelidade (10 compras = 1 bilhete sorteio R$300) 🎁</div>
+    </div>
+
+    <!-- Tela de login inicial (visível antes de qualquer login) -->
+    <div id="loginScreen" class="login-screen">
+        <h2>🔐 Acesso Restrito</h2>
+        <p>Apenas vendedores autorizados podem acessar o sistema.</p>
+        <input type="email" id="loginEmailVendedor" placeholder="E-mail do vendedor" autocomplete="off">
+        <input type="password" id="loginSenhaVendedor" placeholder="Senha">
+        <button id="btnLoginVendedor" class="success">Entrar</button>
+        <div id="loginMensagem" style="margin-top:12px; color:red; font-size:0.8rem;"></div>
+    </div>
+
+    <!-- Conteúdo do sistema (oculto até login) -->
+    <div id="sistemaContent" style="display: none;">
+        <div class="auth-area">
+            <span id="authStatus" style="font-size:0.75rem; color:#33691e;">👤 Vendedor</span>
+            <button id="btnLoginAdmin" class="auth-btn">🔐 Entrar como Dono</button>
+            <button id="btnLogoutAdmin" class="auth-btn">🚪 Sair</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tab-cadastro">➕ Cadastro</button>
+            <button class="tab-btn" data-tab="tab-lista">👥 Clientes</button>
+            <button class="tab-btn" data-tab="tab-compras">💳 Compras</button>
+            <button class="tab-btn" data-tab="tab-gerar">🎫 Cupons Mensais</button>
+            <button class="tab-btn" data-tab="tab-cupons">🏷️ Todos Cupons</button>
+            <button class="tab-btn" data-tab="tab-sorteio">🍀 Sorteio Mensal</button>
+            <button class="tab-btn" data-tab="tab-sorteioAnual">🎁 Sorteio Anual</button>
+            <button class="tab-btn" data-tab="tab-importar">📥 Importar</button>
+            <button class="tab-btn" data-tab="tab-exportar">📤 Exportar</button>
+        </div>
+
+        <!-- Painel Cadastro -->
+        <div id="tab-cadastro" class="panel active-panel">
+            <h2>🌱 Cadastrar Cliente</h2>
+            <label>ID do Cliente (único)</label>
+            <input type="text" id="clienteId" placeholder="Ex: 0001">
+            <label>Nome completo</label>
+            <input type="text" id="clienteNome" placeholder="Nome do cliente">
+            <label>Contato (telefone/email)</label>
+            <input type="text" id="clienteContato" placeholder="(opcional)">
+            <button id="btnSalvarCliente">💾 Salvar</button>
+        </div>
+
+        <!-- Painel Lista Clientes -->
+        <div id="tab-lista" class="panel">
+            <h2>👥 Clientes <button id="btnToggleContatos" class="eye-button">👁️ Mostrar Contatos</button></h2>
+            <div class="contador">🌱 Total: <span id="totalClientes">0</span></div>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar...">
+                <button id="btnSearchClear">Limpar</button>
+            </div>
+            <div class="sort-buttons">
+                <button data-sort="id_asc">⬆️ ID Cresc</button>
+                <button data-sort="id_desc">⬇️ ID Decresc</button>
+                <button data-sort="nome_asc">📗 Nome A-Z</button>
+                <button data-sort="nome_desc">📙 Nome Z-A</button>
+            </div>
+            <div id="listaClientesContainer">Carregando...</div>
+            <div class="flex-btns owner-only">
+                <button id="btnLimparTodosClientes" class="danger">🗑️ Apagar TUDO (clientes + cupons + bilhetes)</button>
+                <button id="btnExcluirTodosCupons" class="danger">🗑️ Excluir APENAS cupons mensais</button>
+            </div>
+        </div>
+
+        <!-- Painel Registrar Compra -->
+        <div id="tab-compras" class="panel">
+            <h2>💳 Registrar Compra</h2>
+            <label>Buscar cliente:</label>
+            <div class="flex-btns">
+                <button id="btnBuscarCompraId" class="secondary">Por ID</button>
+                <button id="btnBuscarCompraNome" class="secondary">Por Nome</button>
+            </div>
+            <div id="buscaCompraIdDiv">
+                <label>ID do Cliente</label>
+                <input type="text" id="compraClienteId" placeholder="ID exato">
+            </div>
+            <div id="buscaCompraNomeDiv" style="display:none;">
+                <label>Nome do Cliente</label>
+                <div class="search-box">
+                    <input type="text" id="compraClienteNome" placeholder="Digite parte do nome">
+                    <div id="sugestoesCompraNome" class="search-suggestions"></div>
+                </div>
+                <div id="compraClienteInfo" style="background:#e8f5e9; border-radius:20px; padding:10px; margin-top:8px; display:none;"></div>
+                <input type="hidden" id="compraClienteIdSelecionado">
+            </div>
+            <label>Valor da compra (R$)</label>
+            <input type="number" id="valorCompra" step="0.01" min="15" placeholder="Ex: 48.00">
+            <small>Cada R$15 = 1 cupom mensal. Compra ≥ R$15 dá 1 marcação. 10 marcações = 1 bilhete anual.</small>
+            <button id="btnRegistrarCompra" class="success">Registrar Compra</button>
+            <div id="compraFeedback"></div>
+        </div>
+
+        <!-- Painel Gerar Cupons Manuais -->
+        <div id="tab-gerar" class="panel">
+            <h2>🎫 Gerar cupons manuais</h2>
+            <label>Buscar cliente:</label>
+            <div class="flex-btns">
+                <button id="btnBuscarPorId" class="secondary">Por ID</button>
+                <button id="btnBuscarPorNome" class="secondary">Por Nome</button>
+            </div>
+            <div id="buscaPorIdDiv">
+                <label>ID do Cliente</label>
+                <input type="text" id="clienteIdGerar" placeholder="ID exato">
+            </div>
+            <div id="buscaPorNomeDiv" style="display:none;">
+                <label>Nome do Cliente</label>
+                <div class="search-box">
+                    <input type="text" id="clienteNomeBusca" placeholder="Digite parte do nome">
+                    <div id="sugestoesNomes" class="search-suggestions"></div>
+                </div>
+                <div id="clienteSelecionadoInfo" style="background:#e8f5e9; border-radius:20px; padding:10px; margin-top:8px; display:none;"></div>
+                <input type="hidden" id="clienteIdSelecionado">
+            </div>
+            <div id="clienteInfoPreview" style="background:#e8f5e9; border-radius:20px; padding:10px; margin-top:8px; display:none;"></div>
+            <label>Quantidade de cupons</label>
+            <input type="number" id="quantidadeCupons" min="1" value="1">
+            <label>Código (opcional)</label>
+            <input type="text" id="codigoCupom" placeholder="Deixe em branco">
+            <button id="btnGerarCupom">Gerar</button>
+            <div id="feedbackGeracao"></div>
+        </div>
+
+        <!-- Painel Todos Cupons Mensais -->
+        <div id="tab-cupons" class="panel">
+            <h2>🏷️ Todos os cupons mensais</h2>
+            <div class="contador">Total: <span id="totalCupons">0</span></div>
+            <div id="listaCuponsContainer">Carregando...</div>
+        </div>
+
+        <!-- Painel Sorteio Mensal -->
+        <div id="tab-sorteio" class="panel">
+            <h2>🍀 Sorteio Mensal</h2>
+            <button id="btnSortearCupom" class="success">Sortear cupom</button>
+            <div id="resultadoSorteio"></div>
+        </div>
+
+        <!-- Painel Sorteio Anual -->
+        <div id="tab-sorteioAnual" class="panel">
+            <h2>🎁 Sorteio Anual - R$300</h2>
+            <div class="contador">🎫 Total de bilhetes: <span id="totalBilhetes">0</span></div>
+            <div class="flex-btns">
+                <button id="btnSortearAnual" class="success">Sortear bilhete</button>
+                <button id="btnExcluirTodosBilhetes" class="danger owner-only">🗑️ Excluir TODOS os bilhetes</button>
+            </div>
+            <div id="resultadoSorteioAnual"></div>
+            <hr>
+            <h3>Lista de Bilhetes</h3>
+            <div id="listaBilhetesContainer"></div>
+            <button id="btnAdicionarBilheteManual" class="secondary owner-only">➕ Adicionar Bilhete Manual</button>
+        </div>
+
+        <!-- Painel Importar -->
+        <div id="tab-importar" class="panel">
+            <h2>📥 Importar</h2>
+            <h3>Clientes (JSON)</h3>
+            <textarea id="jsonClientes" rows="4" placeholder='[{"id":"001","nome":"Joao","contato":"99999","marcacoes":3,"bilhetes":[]}]'></textarea>
+            <button id="btnImportarClientesTexto" class="success">Importar Clientes</button>
+            <hr>
+            <h3>Cupons Mensais (JSON)</h3>
+            <textarea id="jsonCupons" rows="4" placeholder='[{"codigo":"CUP123","clienteId":"001","dataGeracao":"05/05/2026, 17:11:23"}]'></textarea>
+            <small>Formatos aceitos: ISO (2025-01-01T00:00:00.000Z) ou brasileiro (05/05/2026, 17:11:23)</small>
+            <button id="btnImportarCuponsTexto" class="success">Importar Cupons</button>
+            <hr>
+            <input type="file" id="fileImportClientes" accept=".json">
+            <input type="file" id="fileImportCupons" accept=".json" style="margin-top:10px;">
+            <div id="importFeedback"></div>
+        </div>
+
+        <!-- Painel Exportar -->
+        <div id="tab-exportar" class="panel">
+            <h2>📤 Exportar</h2>
+            <button id="btnExportarClientesCSV" class="success">Clientes CSV</button>
+            <button id="btnExportarCuponsCSV" class="success">Cupons CSV</button>
+            <hr>
+            <button id="btnExportarClientesBackup" class="secondary">Backup Clientes JSON</button>
+            <button id="btnExportarCuponsBackup" class="secondary">Backup Cupons JSON</button>
+            <button id="btnExportarBilhetesBackup" class="secondary">Backup Bilhetes JSON</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edição Cliente -->
+<div id="modalEdicao" class="modal">
+    <div class="modal-content">
+        <h3>✏️ Editar Cliente</h3>
+        <label>ID</label><input type="text" id="editId">
+        <label>Nome</label><input type="text" id="editNome">
+        <label>Contato</label><input type="text" id="editContato">
+        <label>Marcações (0-10)</label><input type="number" id="editMarcacoes" min="0" max="10" step="1">
+        <div class="flex-btns"><button id="btnSalvarEdicao" class="success">Salvar</button><button id="btnCancelarEdicao" class="secondary">Cancelar</button></div>
+    </div>
+</div>
+
+<!-- Modal CSV -->
+<div id="modalCSV" class="modal-csv">
+    <div class="modal-csv-content">
+        <h3 id="modalTitle">Dados CSV</h3>
+        <textarea id="csvContent" readonly rows="15"></textarea>
+        <div class="flex-btns"><button id="btnCopiarCSV" class="success">Copiar</button><button id="btnFecharModal" class="secondary">Fechar</button></div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Bilhete Manual -->
+<div id="modalAddBilhete" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h3>Adicionar Bilhete</h3>
+        <label>ID do Cliente</label>
+        <input type="text" id="bilheteClienteId">
+        <div class="flex-btns"><button id="btnConfirmarBilhete" class="success">Adicionar</button><button id="btnCancelarBilhete" class="secondary">Cancelar</button></div>
+    </div>
+</div>
+
+<!-- Modal Login Admin (dono) -->
+<div id="modalLogin" class="modal">
+    <div class="modal-content">
+        <h3>🔐 Login do Dono</h3>
+        <label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com">
+        <label>Senha</label><input type="password" id="loginSenha" placeholder="••••••">
+        <div class="flex-btns"><button id="btnLoginConfirmar" class="success">Entrar</button><button id="btnLoginCancelar" class="secondary">Cancelar</button></div>
+        <div id="loginFeedback" style="margin-top:10px;"></div>
+    </div>
+</div>
+
+<script>
+    // ==================== CONFIGURAÇÃO FIREBASE (SUAS CREDENCIAIS) ====================
+    const firebaseConfig = {
+        apiKey: "AIzaSyAgs3WHgHqkLnEQoZcqtmUlooHGrIkC8uc",
+        authDomain: "hortifruti-familia-sorteios.firebaseapp.com",
+        projectId: "hortifruti-familia-sorteios",
+        storageBucket: "hortifruti-familia-sorteios.firebasestorage.app",
+        messagingSenderId: "35106737020",
+        appId: "1:35106737020:web:508d3992f1aa2f5d1b32f9",
+        measurementId: "G-H5GQXLY9ZE"
+    };
+    const DONO_UID = "oXTUkdacBqOyVb3vlKkdpVarIsr2";
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // ==================== VARIÁVEIS GLOBAIS ====================
+    let clientes = [];
+    let cupons = [];
+    let currentSort = "id_desc";
+    let searchTerm = "";
+    let filteredClients = [];
+    let mostrarContatos = true;
+    let isOwner = false;
+    let currentUser = null;
+
+    // ==================== AUTENTICAÇÃO ====================
+    const loginScreen = document.getElementById("loginScreen");
+    const sistemaContent = document.getElementById("sistemaContent");
+    const loginMensagem = document.getElementById("loginMensagem");
+
+    function mostrarSistema(show) {
+        loginScreen.style.display = show ? "none" : "block";
+        sistemaContent.style.display = show ? "block" : "none";
+    }
+
+    function atualizarInterface() {
+        const authSpan = document.getElementById("authStatus");
+        const btnLoginDono = document.getElementById("btnLoginAdmin");
+        const btnLogout = document.getElementById("btnLogoutAdmin");
+        if (currentUser) {
+            const ehDono = (currentUser.uid === DONO_UID);
+            isOwner = ehDono;
+            authSpan.innerHTML = ehDono ? `👑 Dono: ${currentUser.email}` : `👤 Vendedor: ${currentUser.email}`;
+            btnLoginDono.style.display = ehDono ? "none" : "inline-block";
+            btnLogout.style.display = "inline-block";
+            document.querySelectorAll('.owner-only').forEach(el => {
+                el.style.display = ehDono ? "" : "none";
+            });
+            if (ehDono) {
+                aplicarOrdenacaoEBusca();
+                renderizarTodosCupons();
+                renderizarBilhetes();
+            }
+        } else {
+            authSpan.innerHTML = "";
+            btnLoginDono.style.display = "none";
+            btnLogout.style.display = "none";
+            document.querySelectorAll('.owner-only').forEach(el => el.style.display = "none");
+        }
+    }
+
+    function loginVendedor(email, senha) {
+        auth.signInWithEmailAndPassword(email, senha)
+            .then((userCredential) => {
+                currentUser = userCredential.user;
+                mostrarSistema(true);
+                atualizarInterface();
+                loginMensagem.innerHTML = "";
+                // Iniciar listeners após login
+                iniciarListeners();
+            })
+            .catch(error => {
+                loginMensagem.innerHTML = `❌ Erro: ${error.message}`;
+            });
+    }
+
+    function logout() {
+        auth.signOut().then(() => {
+            currentUser = null;
+            mostrarSistema(false);
+            // Parar listeners (opcional, mas bom)
+            if (clientesUnsubscribe) clientesUnsubscribe();
+            if (cuponsUnsubscribe) cuponsUnsubscribe();
+            // Limpar dados visuais
+            clientes = [];
+            cupons = [];
+            document.getElementById("listaClientesContainer").innerHTML = "";
+            document.getElementById("listaCuponsContainer").innerHTML = "";
+            document.getElementById("listaBilhetesContainer").innerHTML = "";
+        });
+    }
+
+    function loginAsOwner(email, senha) {
+        auth.signInWithEmailAndPassword(email, senha)
+            .then((userCredential) => {
+                currentUser = userCredential.user;
+                document.getElementById("modalLogin").style.display = "none";
+                document.getElementById("loginFeedback").innerHTML = "";
+                atualizarInterface();
+                // Recarregar dados com novas permissões
+                aplicarOrdenacaoEBusca();
+                renderizarTodosCupons();
+                renderizarBilhetes();
+            })
+            .catch(error => {
+                document.getElementById("loginFeedback").innerHTML = `<span style="color:red;">❌ ${error.message}</span>`;
+            });
+    }
+
+    // Listeners do Firestore
+    let clientesUnsubscribe = null;
+    let cuponsUnsubscribe = null;
+
+    function iniciarListeners() {
+        if (clientesUnsubscribe) clientesUnsubscribe();
+        if (cuponsUnsubscribe) cuponsUnsubscribe();
+        clientesUnsubscribe = db.collection("clientes").onSnapshot(snapshot => {
+            clientes = [];
+            snapshot.forEach(doc => {
+                clientes.push({ id: doc.id, ...doc.data() });
+            });
+            aplicarOrdenacaoEBusca();
+            atualizarContadores();
+            renderizarBilhetes();
+        });
+        cuponsUnsubscribe = db.collection("cupons").onSnapshot(snapshot => {
+            cupons = [];
+            snapshot.forEach(doc => {
+                cupons.push({ idUnico: doc.id, ...doc.data() });
+            });
+            renderizarTodosCupons();
+            atualizarContadores();
+        });
+    }
+
+    // ==================== CRUD CLIENTES ====================
+    async function adicionarCliente(id, nome, contato) {
+        if (clientes.some(c => c.id === id)) throw new Error("ID já existe.");
+        await db.collection("clientes").doc(id).set({
+            nome: nome,
+            contato: contato || "",
+            marcacoes: 0,
+            bilhetes: []
+        });
+    }
+
+    async function atualizarCliente(idAntigo, novosDados) {
+        if (idAntigo !== novosDados.id) {
+            const clienteAntigo = clientes.find(c => c.id === idAntigo);
+            if (!clienteAntigo) throw new Error("Cliente não encontrado.");
+            await db.collection("clientes").doc(idAntigo).delete();
+            await db.collection("clientes").doc(novosDados.id).set({
+                ...clienteAntigo,
+                ...novosDados,
+                id: novosDados.id
+            });
+            const batch = db.batch();
+            cupons.forEach(c => {
+                if (c.clienteId === idAntigo) {
+                    batch.update(db.collection("cupons").doc(c.idUnico), { clienteId: novosDados.id });
+                }
+            });
+            await batch.commit();
+        } else {
+            await db.collection("clientes").doc(idAntigo).update(novosDados);
+        }
+    }
+
+    async function excluirCliente(id) {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        if (!confirm(`Excluir ${id} e todos os seus cupons/bilhetes?`)) return;
+        await db.collection("clientes").doc(id).delete();
+        const batch = db.batch();
+        cupons.forEach(c => {
+            if (c.clienteId === id) batch.delete(db.collection("cupons").doc(c.idUnico));
+        });
+        await batch.commit();
+    }
+
+    async function excluirCupom(idUnico) {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        await db.collection("cupons").doc(idUnico).delete();
+    }
+
+    async function processarCompra(clienteId, valor) {
+        const cliente = clientes.find(c => c.id === clienteId);
+        if (!cliente) return { success: false, msg: "Cliente não encontrado." };
+        if (valor < 15) return { success: false, msg: "Valor mínimo R$15." };
+        const qtdCupons = Math.floor(valor / 15);
+        let novosCupons = [];
+        for (let i = 0; i < qtdCupons; i++) {
+            let cod = "MENSAL-" + gerarCodigoAleatorio();
+            while (cupons.some(c => c.codigo === cod)) cod = "MENSAL-" + gerarCodigoAleatorio();
+            novosCupons.push({
+                idUnico: gerarIdUnico(),
+                codigo: cod,
+                clienteId: cliente.id,
+                dataGeracao: new Date().toISOString()
+            });
+        }
+        const batch = db.batch();
+        novosCupons.forEach(cup => batch.set(db.collection("cupons").doc(cup.idUnico), cup));
+        let novasMarcacoes = (cliente.marcacoes || 0) + 1;
+        let bilheteGerado = false;
+        if (novasMarcacoes >= 10) {
+            novasMarcacoes -= 10;
+            bilheteGerado = true;
+            const bilhete = { id: gerarIdUnico(), data: new Date().toISOString() };
+            const bilhetesAtualizados = [...(cliente.bilhetes || []), bilhete];
+            batch.update(db.collection("clientes").doc(cliente.id), {
+                marcacoes: novasMarcacoes,
+                bilhetes: bilhetesAtualizados
+            });
+        } else {
+            batch.update(db.collection("clientes").doc(cliente.id), {
+                marcacoes: novasMarcacoes
+            });
+        }
+        await batch.commit();
+        let msg = `Compra R$ ${valor.toFixed(2)} - ${qtdCupons} cupom(s) mensais. Marcação: ${novasMarcacoes}/10.`;
+        if (bilheteGerado) msg += ` Cartão completo! Bilhete anual gerado.`;
+        return { success: true, msg };
+    }
+
+    async function gerarCuponsManuais(clienteId, qtd, codManual) {
+        const cli = clientes.find(c => c.id === clienteId);
+        if (!cli) return { success: false, msg: "Cliente não encontrado." };
+        let novos = [];
+        for (let i = 0; i < qtd; i++) {
+            let cod = (i === 0 && codManual) ? codManual : "MENSAL-" + gerarCodigoAleatorio();
+            if (i > 0 || !codManual) {
+                while (cupons.some(c => c.codigo === cod)) cod = "MENSAL-" + gerarCodigoAleatorio();
+            } else if (cupons.some(c => c.codigo === cod)) {
+                return { success: false, msg: "Código já existe." };
+            }
+            novos.push({
+                idUnico: gerarIdUnico(),
+                codigo: cod,
+                clienteId: clienteId,
+                dataGeracao: new Date().toISOString()
+            });
+        }
+        const batch = db.batch();
+        novos.forEach(cup => batch.set(db.collection("cupons").doc(cup.idUnico), cup));
+        await batch.commit();
+        return { success: true, msg: `${novos.length} cupom(ns) gerado(s).` };
+    }
+
+    async function adicionarBilheteManual(clienteId) {
+        const cli = clientes.find(c => c.id === clienteId);
+        if (!cli) return alert("Cliente não encontrado.");
+        const bilhete = { id: gerarIdUnico(), data: new Date().toISOString() };
+        const bilhetes = [...(cli.bilhetes || []), bilhete];
+        await db.collection("clientes").doc(clienteId).update({ bilhetes });
+    }
+
+    async function excluirBilhete(clienteId, bilheteId) {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        const cli = clientes.find(c => c.id === clienteId);
+        if (cli && cli.bilhetes) {
+            const novosBilhetes = cli.bilhetes.filter(b => b.id !== bilheteId);
+            await db.collection("clientes").doc(clienteId).update({ bilhetes: novosBilhetes });
+        }
+    }
+
+    async function excluirTodosBilhetes() {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        if (!confirm("⚠️ Apagar TODOS os bilhetes do sorteio anual?")) return;
+        const batch = db.batch();
+        clientes.forEach(c => {
+            if (c.bilhetes && c.bilhetes.length > 0) {
+                batch.update(db.collection("clientes").doc(c.id), { bilhetes: [] });
+            }
+        });
+        await batch.commit();
+    }
+
+    async function excluirTodosCupons() {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        if (!confirm("⚠️ Excluir TODOS os cupons mensais?")) return;
+        const batch = db.batch();
+        cupons.forEach(c => batch.delete(db.collection("cupons").doc(c.idUnico)));
+        await batch.commit();
+    }
+
+    async function limparTudo() {
+        if (!isOwner) return alert("Apenas o dono pode excluir.");
+        if (!confirm("⚠️ Apagar TODOS os dados?")) return;
+        const batch = db.batch();
+        clientes.forEach(c => batch.delete(db.collection("clientes").doc(c.id)));
+        cupons.forEach(c => batch.delete(db.collection("cupons").doc(c.idUnico)));
+        await batch.commit();
+    }
+
+    // ==================== UTILITÁRIOS ====================
+    function gerarIdUnico() { return Date.now() + '_' + Math.random().toString(36).substr(2, 8); }
+    function gerarCodigoAleatorio() { return Math.random().toString(36).substr(2, 8).toUpperCase(); }
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
+    function formatarContato(contato) {
+        if (!contato) return "Não informado";
+        return mostrarContatos ? contato : "•".repeat(contato.length);
+    }
+    function converterDataParaISO(dataStr) {
+        if (!dataStr) return new Date().toISOString();
+        let data = new Date(dataStr);
+        if (!isNaN(data.getTime())) return data.toISOString();
+        const partes = dataStr.replace(',', ' ').trim().split(' ');
+        if (partes.length >= 2) {
+            const dataPartes = partes[0].split('/');
+            const horaPartes = partes[1].split(':');
+            if (dataPartes.length === 3 && horaPartes.length >= 2) {
+                const dia = parseInt(dataPartes[0]);
+                const mes = parseInt(dataPartes[1]) - 1;
+                const ano = parseInt(dataPartes[2]);
+                const hora = parseInt(horaPartes[0]);
+                const minuto = parseInt(horaPartes[1]);
+                const segundo = horaPartes[2] ? parseInt(horaPartes[2]) : 0;
+                data = new Date(ano, mes, dia, hora, minuto, segundo);
+                if (!isNaN(data.getTime())) return data.toISOString();
+            }
+        }
+        return new Date().toISOString();
+    }
+
+    function ordenarClientes(lista, criterio) {
+        const clone = [...lista];
+        if (criterio === "id_asc") clone.sort((a,b) => (a.id > b.id ? 1 : -1));
+        else if (criterio === "id_desc") clone.sort((a,b) => (a.id < b.id ? 1 : -1));
+        else if (criterio === "nome_asc") clone.sort((a,b) => a.nome.localeCompare(b.nome, 'pt'));
+        else if (criterio === "nome_desc") clone.sort((a,b) => b.nome.localeCompare(a.nome, 'pt'));
+        return clone;
+    }
+
+    function filtrarClientes(lista, termo) {
+        if (!termo.trim()) return lista;
+        const lower = termo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return lista.filter(c => {
+            const nome = (c.nome || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const id = String(c.id).toLowerCase();
+            const contato = (c.contato || "").toLowerCase();
+            return nome.includes(lower) || id.includes(lower) || contato.includes(lower);
+        });
+    }
+
+    function aplicarOrdenacaoEBusca() {
+        let lista = searchTerm ? filtrarClientes(clientes, searchTerm) : [...clientes];
+        filteredClients = ordenarClientes(lista, currentSort);
+        renderizarListaClientes();
+        atualizarContadores();
+    }
+
+    function atualizarContadores() {
+        document.getElementById("totalClientes").innerText = clientes.length;
+        document.getElementById("totalCupons").innerText = cupons.length;
+        let totalBilhetes = 0;
+        clientes.forEach(c => { if (c.bilhetes) totalBilhetes += c.bilhetes.length; });
+        document.getElementById("totalBilhetes").innerText = totalBilhetes;
+    }
+
+    function renderizarListaClientes() {
+        const container = document.getElementById("listaClientesContainer");
+        if (!filteredClients.length) { container.innerHTML = '<div class="empty-message">Nenhum cliente.</div>'; return; }
+        let html = '';
+        filteredClients.forEach(cli => {
+            const qtd = cupons.filter(c => c.clienteId === cli.id).length;
+            const contato = formatarContato(cli.contato);
+            const progresso = "🟢".repeat(cli.marcacoes) + "⚪".repeat(10 - cli.marcacoes);
+            html += `
+                <div class="lista-item">
+                    <div class="cliente-info">🍅 ID: ${escapeHtml(cli.id)} - ${escapeHtml(cli.nome)}</div>
+                    <div class="cliente-detalhes">📞 ${escapeHtml(contato)} | 🎫 Cupons: ${qtd}</div>
+                    <div class="cliente-detalhes">🏷️ ${progresso} (${cli.marcacoes}/10) | 🎁 Bilhetes: ${cli.bilhetes?.length || 0}</div>
+                    <div class="flex-btns">
+                        <button class="secondary btn-editar" data-id="${cli.id}">✏️ Editar</button>
+                        ${isOwner ? `<button class="secondary btn-excluir" data-id="${cli.id}" style="background:#ffccbc;">🗑️ Excluir</button>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.btn-editar').forEach(btn => btn.addEventListener('click', () => abrirEdicao(btn.dataset.id)));
+        if (isOwner) {
+            document.querySelectorAll('.btn-excluir').forEach(btn => btn.addEventListener('click', () => excluirCliente(btn.dataset.id)));
+        }
+    }
+
+    function renderizarTodosCupons() {
+        const container = document.getElementById("listaCuponsContainer");
+        if (!cupons.length) { container.innerHTML = '<div class="empty-message">Nenhum cupom.</div>'; return; }
+        let html = '';
+        cupons.forEach((cup) => {
+            const cli = clientes.find(c => c.id === cup.clienteId);
+            html += `<div class="lista-item">🎫 ${escapeHtml(cup.codigo)}<br>👤 ${cli ? escapeHtml(cli.nome) : '?'} (${escapeHtml(cup.clienteId)})<br>📅 ${new Date(cup.dataGeracao).toLocaleString()}<div class="flex-btns">${isOwner ? `<button class="secondary btn-del-cupom" data-id="${cup.idUnico}">🗑️ Excluir</button>` : ''}</div></div>`;
+        });
+        container.innerHTML = html;
+        if (isOwner) {
+            document.querySelectorAll('.btn-del-cupom').forEach(btn => btn.addEventListener('click', () => excluirCupom(btn.dataset.id)));
+        }
+    }
+
+    function renderizarBilhetes() {
+        const container = document.getElementById("listaBilhetesContainer");
+        let todos = [];
+        clientes.forEach(c => {
+            if (c.bilhetes) c.bilhetes.forEach(b => todos.push({ ...b, clienteId: c.id, clienteNome: c.nome }));
+        });
+        if (!todos.length) { container.innerHTML = '<div class="empty-message">Nenhum bilhete.</div>'; return; }
+        let html = '';
+        todos.forEach(b => {
+            html += `<div class="lista-item">🎫 Bilhete #${b.id.slice(-6)}<br>👤 ${escapeHtml(b.clienteNome)} (${escapeHtml(b.clienteId)})<br>📅 ${new Date(b.data).toLocaleString()}<br><div class="flex-btns">${isOwner ? `<button class="secondary btn-del-bilhete" data-cliente="${b.clienteId}" data-bilhete="${b.id}">🗑️ Excluir</button>` : ''}</div></div>`;
+        });
+        container.innerHTML = html;
+        if (isOwner) {
+            document.querySelectorAll('.btn-del-bilhete').forEach(btn => {
+                btn.addEventListener('click', () => excluirBilhete(btn.dataset.cliente, btn.dataset.bilhete));
+            });
+        }
+    }
+
+    let editandoId = null;
+    function abrirEdicao(id) {
+        const cli = clientes.find(c => c.id === id);
+        if (!cli) return;
+        editandoId = id;
+        document.getElementById("editId").value = cli.id;
+        document.getElementById("editNome").value = cli.nome;
+        document.getElementById("editContato").value = cli.contato || "";
+        document.getElementById("editMarcacoes").value = cli.marcacoes;
+        document.getElementById("modalEdicao").style.display = "flex";
+    }
+    async function salvarEdicao() {
+        const novoId = document.getElementById("editId").value.trim();
+        const novoNome = document.getElementById("editNome").value.trim();
+        const novoContato = document.getElementById("editContato").value.trim();
+        const novasMarc = parseInt(document.getElementById("editMarcacoes").value) || 0;
+        if (!novoId || !novoNome) return alert("ID e Nome obrigatórios.");
+        try {
+            await atualizarCliente(editandoId, {
+                id: novoId,
+                nome: novoNome,
+                contato: novoContato,
+                marcacoes: Math.min(10, Math.max(0, novasMarc))
+            });
+            fecharEdicao();
+            alert("Cliente atualizado.");
+        } catch (e) {
+            alert("Erro: " + e.message);
+        }
+    }
+    function fecharEdicao() { document.getElementById("modalEdicao").style.display = "none"; editandoId = null; }
+
+    function sortearMensal() {
+        if (!cupons.length) { document.getElementById("resultadoSorteio").innerHTML = '<div class="empty-message">Nenhum cupom mensal.</div>'; return; }
+        const idx = Math.floor(Math.random() * cupons.length);
+        const cup = cupons[idx];
+        const cli = clientes.find(c => c.id === cup.clienteId);
+        const contato = formatarContato(cli?.contato);
+        document.getElementById("resultadoSorteio").innerHTML = `<div style="background:#e8f5e9;border:2px solid #f9a825;border-radius:24px;padding:20px;text-align:center;">🎉 Cupom: ${escapeHtml(cup.codigo)}<br>🏆 Cliente: ${cli ? escapeHtml(cli.nome) : '?'} (${escapeHtml(cup.clienteId)})<br>📞 ${escapeHtml(contato)}</div>`;
+    }
+
+    function sortearAnual() {
+        let todosBilhetes = [];
+        clientes.forEach(c => {
+            if (c.bilhetes) c.bilhetes.forEach(b => todosBilhetes.push({ ...b, clienteId: c.id, clienteNome: c.nome }));
+        });
+        if (!todosBilhetes.length) {
+            document.getElementById("resultadoSorteioAnual").innerHTML = '<div style="background:#fee2e2;padding:20px;border-radius:20px;">🎁 Nenhum bilhete cadastrado.</div>';
+            return;
+        }
+        const sorteado = todosBilhetes[Math.floor(Math.random() * todosBilhetes.length)];
+        const cli = clientes.find(c => c.id === sorteado.clienteId);
+        const contato = formatarContato(cli?.contato);
+        document.getElementById("resultadoSorteioAnual").innerHTML = `
+            <div style="background:#e8f5e9;border:2px solid #f9a825;border-radius:24px;padding:20px;text-align:center;">
+                🎉 <strong>Bilhete sorteado!</strong><br><br>
+                🏆 <strong>Cliente ganhador:</strong> ${escapeHtml(sorteado.clienteNome)} (ID: ${escapeHtml(sorteado.clienteId)})<br>
+                📞 Contato: ${escapeHtml(contato)}<br>
+                🎁 Prêmio: R$300,00 em compras no Hortifruti!<br>
+                📅 Bilhete gerado em: ${new Date(sorteado.data).toLocaleString()}<br><br>
+                <small>✅ Bilhete permanece disponível para próximos sorteios.</small>
+            </div>
+        `;
+    }
+
+    function mostrarCSV(titulo, conteudo) {
+        document.getElementById("modalTitle").innerText = titulo;
+        document.getElementById("csvContent").value = conteudo;
+        document.getElementById("modalCSV").style.display = "flex";
+    }
+
+    // ==================== EVENTOS E INICIALIZAÇÃO ====================
+    document.addEventListener("DOMContentLoaded", () => {
+        // Login inicial
+        document.getElementById("btnLoginVendedor").addEventListener("click", () => {
+            const email = document.getElementById("loginEmailVendedor").value.trim();
+            const senha = document.getElementById("loginSenhaVendedor").value;
+            if (email && senha) loginVendedor(email, senha);
+            else loginMensagem.innerHTML = "Preencha e-mail e senha.";
+        });
+
+        // Botões do sistema
+        document.getElementById("btnLoginAdmin").addEventListener("click", () => {
+            document.getElementById("modalLogin").style.display = "flex";
+        });
+        document.getElementById("btnLoginCancelar").addEventListener("click", () => {
+            document.getElementById("modalLogin").style.display = "none";
+        });
+        document.getElementById("btnLoginConfirmar").addEventListener("click", () => {
+            const email = document.getElementById("loginEmail").value.trim();
+            const senha = document.getElementById("loginSenha").value;
+            loginAsOwner(email, senha);
+        });
+        document.getElementById("btnLogoutAdmin").addEventListener("click", logout);
+
+        document.getElementById("btnToggleContatos").addEventListener("click", () => {
+            mostrarContatos = !mostrarContatos;
+            document.getElementById("btnToggleContatos").innerHTML = mostrarContatos ? "👁️ Mostrar Contatos" : "🙈 Esconder Contatos";
+            aplicarOrdenacaoEBusca();
+            document.getElementById("resultadoSorteio").innerHTML = "";
+            document.getElementById("resultadoSorteioAnual").innerHTML = "";
+        });
+
+        const tabs = document.querySelectorAll(".tab-btn");
+        const panels = document.querySelectorAll(".panel");
+        tabs.forEach(btn => {
+            btn.addEventListener("click", () => {
+                const targetId = btn.getAttribute("data-tab");
+                panels.forEach(p => p.classList.remove("active-panel"));
+                document.getElementById(targetId).classList.add("active-panel");
+                tabs.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                if (targetId === "tab-lista") aplicarOrdenacaoEBusca();
+                if (targetId === "tab-cupons") renderizarTodosCupons();
+                if (targetId === "tab-sorteioAnual") renderizarBilhetes();
+            });
+        });
+
+        document.getElementById("btnSalvarCliente").addEventListener("click", async () => {
+            const id = document.getElementById("clienteId").value.trim();
+            const nome = document.getElementById("clienteNome").value.trim();
+            const contato = document.getElementById("clienteContato").value.trim();
+            if (!id || !nome) return alert("ID e Nome obrigatórios.");
+            try {
+                await adicionarCliente(id, nome, contato);
+                document.getElementById("clienteId").value = "";
+                document.getElementById("clienteNome").value = "";
+                document.getElementById("clienteContato").value = "";
+                alert("Cliente cadastrado.");
+            } catch (e) {
+                alert(e.message);
+            }
+        });
+
+        document.getElementById("btnRegistrarCompra").addEventListener("click", async () => {
+            let clienteId = document.getElementById("buscaCompraIdDiv").style.display !== "none" ?
+                document.getElementById("compraClienteId").value.trim() :
+                document.getElementById("compraClienteIdSelecionado").value;
+            if (!clienteId) return alert("Selecione um cliente.");
+            const valor = parseFloat(document.getElementById("valorCompra").value);
+            if (isNaN(valor) || valor < 15) return alert("Valor mínimo R$15.");
+            const res = await processarCompra(clienteId, valor);
+            const fb = document.getElementById("compraFeedback");
+            fb.innerHTML = res.success ? `<span style="color:green;">✅ ${res.msg}</span>` : `<span style="color:red;">❌ ${res.msg}</span>`;
+            if (res.success) document.getElementById("valorCompra").value = "";
+            setTimeout(() => fb.innerHTML = "", 5000);
+        });
+
+        document.getElementById("btnBuscarCompraId").addEventListener("click", () => {
+            document.getElementById("buscaCompraIdDiv").style.display = "block";
+            document.getElementById("buscaCompraNomeDiv").style.display = "none";
+        });
+        document.getElementById("btnBuscarCompraNome").addEventListener("click", () => {
+            document.getElementById("buscaCompraIdDiv").style.display = "none";
+            document.getElementById("buscaCompraNomeDiv").style.display = "block";
+        });
+        setupBuscaNome("compraClienteNome", "sugestoesCompraNome", "compraClienteIdSelecionado", "compraClienteInfo");
+
+        document.getElementById("btnGerarCupom").addEventListener("click", async () => {
+            let clienteId = document.getElementById("buscaPorIdDiv").style.display !== "none" ?
+                document.getElementById("clienteIdGerar").value.trim() :
+                document.getElementById("clienteIdSelecionado").value;
+            if (!clienteId) return alert("Selecione um cliente.");
+            const qtd = parseInt(document.getElementById("quantidadeCupons").value);
+            const cod = document.getElementById("codigoCupom").value.trim();
+            const res = await gerarCuponsManuais(clienteId, qtd, cod);
+            const fb = document.getElementById("feedbackGeracao");
+            fb.innerHTML = res.success ? `<span style="color:green;">✅ ${res.msg}</span>` : `<span style="color:red;">❌ ${res.msg}</span>`;
+            if (res.success) document.getElementById("codigoCupom").value = "";
+            setTimeout(() => fb.innerHTML = "", 3000);
+        });
+        document.getElementById("btnBuscarPorId").addEventListener("click", () => {
+            document.getElementById("buscaPorIdDiv").style.display = "block";
+            document.getElementById("buscaPorNomeDiv").style.display = "none";
+        });
+        document.getElementById("btnBuscarPorNome").addEventListener("click", () => {
+            document.getElementById("buscaPorIdDiv").style.display = "none";
+            document.getElementById("buscaPorNomeDiv").style.display = "block";
+        });
+        setupBuscaNome("clienteNomeBusca", "sugestoesNomes", "clienteIdSelecionado", "clienteSelecionadoInfo");
+
+        document.getElementById("clienteIdGerar").addEventListener("input", () => {
+            const id = document.getElementById("clienteIdGerar").value.trim();
+            const preview = document.getElementById("clienteInfoPreview");
+            const cli = clientes.find(c => c.id === id);
+            if (cli) { preview.style.display = "block"; preview.innerHTML = `🍅 ${escapeHtml(cli.nome)}`; preview.style.background = "#e8f5e9"; }
+            else { preview.style.display = "block"; preview.innerHTML = "⚠️ Cliente não encontrado"; preview.style.background = "#ffebee"; }
+        });
+
+        document.getElementById("btnExcluirTodosCupons")?.addEventListener("click", excluirTodosCupons);
+        document.getElementById("btnExcluirTodosBilhetes")?.addEventListener("click", excluirTodosBilhetes);
+        document.getElementById("btnLimparTodosClientes")?.addEventListener("click", limparTudo);
+
+        document.getElementById("btnSortearCupom").addEventListener("click", sortearMensal);
+        document.getElementById("btnSortearAnual").addEventListener("click", sortearAnual);
+
+        const modalBilhete = document.getElementById("modalAddBilhete");
+        document.getElementById("btnAdicionarBilheteManual")?.addEventListener("click", () => modalBilhete.style.display = "flex");
+        document.getElementById("btnConfirmarBilhete")?.addEventListener("click", async () => {
+            const id = document.getElementById("bilheteClienteId").value.trim();
+            if (!id) return;
+            await adicionarBilheteManual(id);
+            modalBilhete.style.display = "none";
+            document.getElementById("bilheteClienteId").value = "";
+            alert("Bilhete adicionado.");
+        });
+        document.getElementById("btnCancelarBilhete")?.addEventListener("click", () => {
+            modalBilhete.style.display = "none";
+            document.getElementById("bilheteClienteId").value = "";
+        });
+
+        const searchInput = document.getElementById("searchInput");
+        const btnClear = document.getElementById("btnSearchClear");
+        searchInput.addEventListener("input", e => { searchTerm = e.target.value; aplicarOrdenacaoEBusca(); });
+        btnClear.addEventListener("click", () => { searchInput.value = ""; searchTerm = ""; aplicarOrdenacaoEBusca(); });
+        document.querySelectorAll(".sort-buttons button").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const sort = btn.getAttribute("data-sort");
+                if (sort) { currentSort = sort; aplicarOrdenacaoEBusca(); }
+                document.querySelectorAll(".sort-buttons button").forEach(b => b.classList.remove("active-sort"));
+                btn.classList.add("active-sort");
+            });
+        });
+
+        document.getElementById("btnExportarClientesCSV").addEventListener("click", () => {
+            if (!clientes.length) return alert("Sem clientes.");
+            const headers = ["ID","Nome","Contato","Marcacoes","Bilhetes"];
+            const rows = clientes.map(c => [c.id, c.nome, c.contato || "", c.marcacoes, c.bilhetes?.length || 0]);
+            const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+            mostrarCSV("Clientes CSV", csv);
+        });
+        document.getElementById("btnExportarCuponsCSV").addEventListener("click", () => {
+            if (!cupons.length) return alert("Sem cupons.");
+            const headers = ["Codigo","ClienteId","NomeCliente","Data"];
+            const rows = cupons.map(c => {
+                const cli = clientes.find(cl => cl.id === c.clienteId);
+                return [c.codigo, c.clienteId, cli ? cli.nome : "?", new Date(c.dataGeracao).toLocaleString()];
+            });
+            const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+            mostrarCSV("Cupons CSV", csv);
+        });
+        document.getElementById("btnExportarClientesBackup").addEventListener("click", () => downloadJSON(clientes, "clientes"));
+        document.getElementById("btnExportarCuponsBackup").addEventListener("click", () => downloadJSON(cupons, "cupons"));
+        document.getElementById("btnExportarBilhetesBackup").addEventListener("click", () => {
+            const bilhetes = [];
+            clientes.forEach(c => { if (c.bilhetes) c.bilhetes.forEach(b => bilhetes.push({...b, clienteId: c.id, clienteNome: c.nome})); });
+            downloadJSON(bilhetes, "bilhetes");
+        });
+        document.getElementById("btnCopiarCSV").addEventListener("click", () => {
+            const txt = document.getElementById("csvContent");
+            txt.select(); document.execCommand("copy"); alert("Copiado!");
+        });
+        document.getElementById("btnFecharModal").addEventListener("click", () => document.getElementById("modalCSV").style.display = "none");
+
+        document.getElementById("btnImportarClientesTexto").addEventListener("click", async () => {
+            try {
+                const dados = JSON.parse(document.getElementById("jsonClientes").value);
+                if (!Array.isArray(dados)) throw new Error();
+                const batch = db.batch();
+                let count = 0;
+                for (const item of dados) {
+                    if (item.id && item.nome) {
+                        batch.set(db.collection("clientes").doc(String(item.id)), {
+                            nome: String(item.nome),
+                            contato: item.contato !== undefined ? String(item.contato) : "",
+                            marcacoes: item.marcacoes !== undefined ? item.marcacoes : 0,
+                            bilhetes: item.bilhetes || []
+                        });
+                        count++;
+                    }
+                }
+                await batch.commit();
+                document.getElementById("importFeedback").innerHTML = `<span style="color:green;">✅ ${count} clientes importados.</span>`;
+                document.getElementById("jsonClientes").value = "";
+            } catch(e) { document.getElementById("importFeedback").innerHTML = `<span style="color:red;">❌ Erro JSON.</span>`; }
+        });
+        document.getElementById("btnImportarCuponsTexto").addEventListener("click", async () => {
+            try {
+                const dados = JSON.parse(document.getElementById("jsonCupons").value);
+                if (!Array.isArray(dados)) throw new Error();
+                const batch = db.batch();
+                let count = 0;
+                for (const item of dados) {
+                    if (item.codigo && item.clienteId) {
+                        const id = gerarIdUnico();
+                        batch.set(db.collection("cupons").doc(id), {
+                            codigo: item.codigo,
+                            clienteId: item.clienteId,
+                            dataGeracao: converterDataParaISO(item.dataGeracao)
+                        });
+                        count++;
+                    }
+                }
+                await batch.commit();
+                document.getElementById("importFeedback").innerHTML = `<span style="color:green;">✅ ${count} cupons importados.</span>`;
+                document.getElementById("jsonCupons").value = "";
+            } catch(e) { document.getElementById("importFeedback").innerHTML = `<span style="color:red;">❌ Erro JSON.</span>`; }
+        });
+
+        function handleFileImport(file, type) {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const dados = JSON.parse(ev.target.result);
+                    if (!Array.isArray(dados)) throw new Error();
+                    const batch = db.batch();
+                    let count = 0;
+                    if (type === 'clientes') {
+                        for (const item of dados) {
+                            if (item.id && item.nome) {
+                                batch.set(db.collection("clientes").doc(String(item.id)), {
+                                    nome: String(item.nome),
+                                    contato: item.contato || "",
+                                    marcacoes: item.marcacoes || 0,
+                                    bilhetes: item.bilhetes || []
+                                });
+                                count++;
+                            }
+                        }
+                    } else {
+                        for (const item of dados) {
+                            if (item.codigo && item.clienteId) {
+                                const id = gerarIdUnico();
+                                batch.set(db.collection("cupons").doc(id), {
+                                    codigo: item.codigo,
+                                    clienteId: item.clienteId,
+                                    dataGeracao: converterDataParaISO(item.dataGeracao)
+                                });
+                                count++;
+                            }
+                        }
+                    }
+                    await batch.commit();
+                    document.getElementById("importFeedback").innerHTML = `<span style="color:green;">✅ ${count} ${type} importados do arquivo.</span>`;
+                } catch(e) {
+                    document.getElementById("importFeedback").innerHTML = `<span style="color:red;">❌ Erro no arquivo.</span>`;
+                }
+            };
+            reader.readAsText(file);
+        }
+        document.getElementById("fileImportClientes").addEventListener("change", e => { if (e.target.files[0]) handleFileImport(e.target.files[0], 'clientes'); });
+        document.getElementById("fileImportCupons").addEventListener("change", e => { if (e.target.files[0]) handleFileImport(e.target.files[0], 'cupons'); });
+
+        document.getElementById("btnSalvarEdicao").addEventListener("click", salvarEdicao);
+        document.getElementById("btnCancelarEdicao").addEventListener("click", fecharEdicao);
+        window.addEventListener("click", (e) => {
+            if (e.target === document.getElementById("modalEdicao")) fecharEdicao();
+            if (e.target === document.getElementById("modalCSV")) document.getElementById("modalCSV").style.display = "none";
+            if (e.target === document.getElementById("modalLogin")) document.getElementById("modalLogin").style.display = "none";
+            if (e.target === document.getElementById("modalAddBilhete")) document.getElementById("modalAddBilhete").style.display = "none";
+        });
+
+        function setupBuscaNome(inputId, suggestionsId, hiddenId, infoDivId) {
+            const input = document.getElementById(inputId);
+            const suggestions = document.getElementById(suggestionsId);
+            const hidden = document.getElementById(hiddenId);
+            const infoDiv = document.getElementById(infoDivId);
+            if (!input) return;
+            input.addEventListener("input", () => {
+                const termo = input.value.trim().toLowerCase();
+                if (!termo || !clientes.length) { suggestions.style.display = "none"; return; }
+                const matches = clientes.filter(c => c.nome.toLowerCase().includes(termo));
+                if (!matches.length) { suggestions.style.display = "none"; return; }
+                suggestions.style.display = "block";
+                suggestions.innerHTML = matches.slice(0,10).map(c => `<div data-id="${c.id}" data-nome="${escapeHtml(c.nome)}">${escapeHtml(c.id)} - ${escapeHtml(c.nome)}</div>`).join("");
+                suggestions.querySelectorAll("div").forEach(div => {
+                    div.addEventListener("click", () => {
+                        input.value = div.dataset.nome;
+                        hidden.value = div.dataset.id;
+                        infoDiv.innerHTML = `✅ Cliente: ${div.dataset.nome} (${div.dataset.id})`;
+                        infoDiv.style.display = "block";
+                        suggestions.style.display = "none";
+                    });
+                });
+            });
+            document.addEventListener("click", (e) => { if (!input.contains(e.target)) suggestions.style.display = "none"; });
+        }
+
+        function downloadJSON(data, prefixo) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `${prefixo}_${new Date().toISOString().slice(0,19)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    });
+</script>
+</body>
+</html>
