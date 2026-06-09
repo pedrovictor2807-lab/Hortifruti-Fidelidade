@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-    <title>Hortifruti - Fidelidade + Indicação (Ponto vale R$10)</title>
+    <title>Hortifruti - Fidelidade + Pontos Resgatáveis</title>
 
-    <!-- Firebase SDKs (compat) -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -282,7 +282,7 @@
 <div class="container">
     <div class="header">
         <h1><span>🌿</span> Hortifruti Cupons <span>🍎</span></h1>
-        <div class="subtitle">🍅 Fidelidade + Indicação: indique e ganhe R$10 por ponto (cada bilhete do indicado = 1 ponto)</div>
+        <div class="subtitle">🍅 Fidelidade + Indicação: cada ponto vale R$10 | Resgate quando quiser!</div>
     </div>
 
     <div id="loginScreen" class="login-screen">
@@ -302,12 +302,12 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" data-tab="tab-cadastro">➕ Cadastro</button>
+            <button class="tab-btn" data-tab="tab-cadastro">➕ Cadastro</button>
             <button class="tab-btn" data-tab="tab-lista">👥 Clientes</button>
+            <button class="tab-btn" data-tab="tab-pontos">🎁 Pontos Resgatáveis</button>
             <button class="tab-btn" data-tab="tab-compras">💳 Compras</button>
             <button class="tab-btn" data-tab="tab-gerar">🎫 Cupons Mensais</button>
             <button class="tab-btn" data-tab="tab-cupons">🏷️ Todos Cupons</button>
-            <button class="tab-btn" data-tab="tab-cuponsResgate">🏆 Cupons Resgatados</button>
             <button class="tab-btn" data-tab="tab-sorteio">🍀 Sorteio Mensal</button>
             <button class="tab-btn" data-tab="tab-sorteioAnual">🎁 Sorteio Anual</button>
             <button class="tab-btn" data-tab="tab-importar">📥 Importar</button>
@@ -315,7 +315,7 @@
         </div>
 
         <!-- Painel Cadastro -->
-        <div id="tab-cadastro" class="panel active-panel">
+        <div id="tab-cadastro" class="panel">
             <h2>🌱 Cadastrar Cliente</h2>
             <label>ID do Cliente (único)</label>
             <input type="text" id="clienteId" placeholder="Ex: 0001">
@@ -328,9 +328,9 @@
             <button id="btnSalvarCliente">💾 Salvar</button>
         </div>
 
-        <!-- Painel Lista Clientes -->
+        <!-- Painel Lista Clientes Geral -->
         <div id="tab-lista" class="panel">
-            <h2>👥 Clientes <button id="btnToggleContatos" class="eye-button">👁️ Mostrar Contatos</button></h2>
+            <h2>👥 Todos os Clientes <button id="btnToggleContatos" class="eye-button">👁️ Mostrar Contatos</button></h2>
             <div class="contador">🌱 Total: <span id="totalClientes">0</span></div>
             <div class="search-container">
                 <input type="text" id="searchInput" placeholder="🔍 Buscar...">
@@ -347,6 +347,13 @@
                 <button id="btnLimparTodosClientes" class="danger">🗑️ Apagar TUDO (clientes + cupons + bilhetes)</button>
                 <button id="btnExcluirTodosCupons" class="danger">🗑️ Excluir APENAS cupons mensais</button>
             </div>
+        </div>
+
+        <!-- Painel Pontos Resgatáveis (apenas clientes com pontos > 0) -->
+        <div id="tab-pontos" class="panel active-panel">
+            <h2>🎁 Clientes com Pontos Resgatáveis</h2>
+            <div class="contador">🎯 Total com pontos: <span id="totalPontosClientes">0</span></div>
+            <div id="listaPontosContainer">Carregando...</div>
         </div>
 
         <!-- Painel Registrar Compra -->
@@ -412,13 +419,6 @@
             <h2>🏷️ Todos os cupons mensais</h2>
             <div class="contador">Total: <span id="totalCupons">0</span></div>
             <div id="listaCuponsContainer">Carregando...</div>
-        </div>
-
-        <!-- Painel Cupons Resgatados -->
-        <div id="tab-cuponsResgate" class="panel">
-            <h2>🏆 Cupons Resgatados (R$10 por ponto)</h2>
-            <div class="contador">Total resgatados: <span id="totalResgates">0</span></div>
-            <div id="listaResgatesContainer">Carregando...</div>
         </div>
 
         <!-- Painel Sorteio Mensal -->
@@ -516,7 +516,7 @@
 </div>
 
 <script>
-    // ==================== CONFIGURAÇÃO FIREBASE (SUAS CREDENCIAIS) ====================
+    // ==================== CONFIGURAÇÃO FIREBASE ====================
     const firebaseConfig = {
         apiKey: "AIzaSyAgs3WHgHqkLnEQoZcqtmUlooHGrIkC8uc",
         authDomain: "hortifruti-familia-sorteios.firebaseapp.com",
@@ -535,7 +535,6 @@
     // ==================== VARIÁVEIS GLOBAIS ====================
     let clientes = [];
     let cupons = [];
-    let cuponsResgate = [];
     let currentSort = "id_desc";
     let searchTerm = "";
     let filteredClients = [];
@@ -545,7 +544,6 @@
 
     let clientesUnsubscribe = null;
     let cuponsUnsubscribe = null;
-    let resgateUnsubscribe = null;
 
     // ==================== AUTENTICAÇÃO ====================
     const loginScreen = document.getElementById("loginScreen");
@@ -574,7 +572,6 @@
                 aplicarOrdenacaoEBusca();
                 renderizarTodosCupons();
                 renderizarBilhetes();
-                renderizarCuponsResgate();
             }
         } else {
             authSpan.innerHTML = "";
@@ -604,14 +601,12 @@
             mostrarSistema(false);
             if (clientesUnsubscribe) clientesUnsubscribe();
             if (cuponsUnsubscribe) cuponsUnsubscribe();
-            if (resgateUnsubscribe) resgateUnsubscribe();
             clientes = [];
             cupons = [];
-            cuponsResgate = [];
             document.getElementById("listaClientesContainer").innerHTML = "";
             document.getElementById("listaCuponsContainer").innerHTML = "";
             document.getElementById("listaBilhetesContainer").innerHTML = "";
-            document.getElementById("listaResgatesContainer").innerHTML = "";
+            document.getElementById("listaPontosContainer").innerHTML = "";
         });
     }
 
@@ -625,7 +620,6 @@
                 aplicarOrdenacaoEBusca();
                 renderizarTodosCupons();
                 renderizarBilhetes();
-                renderizarCuponsResgate();
             })
             .catch(error => {
                 document.getElementById("loginFeedback").innerHTML = `<span style="color:red;">❌ ${error.message}</span>`;
@@ -635,7 +629,6 @@
     function iniciarListeners() {
         if (clientesUnsubscribe) clientesUnsubscribe();
         if (cuponsUnsubscribe) cuponsUnsubscribe();
-        if (resgateUnsubscribe) resgateUnsubscribe();
         clientesUnsubscribe = db.collection("clientes").onSnapshot(snapshot => {
             clientes = [];
             snapshot.forEach(doc => {
@@ -644,6 +637,7 @@
             aplicarOrdenacaoEBusca();
             atualizarContadores();
             renderizarBilhetes();
+            renderizarPontosResgataveis();  // atualiza aba de pontos
         });
         cuponsUnsubscribe = db.collection("cupons").onSnapshot(snapshot => {
             cupons = [];
@@ -651,14 +645,6 @@
                 cupons.push({ idUnico: doc.id, ...doc.data() });
             });
             renderizarTodosCupons();
-            atualizarContadores();
-        });
-        resgateUnsubscribe = db.collection("cuponsResgate").onSnapshot(snapshot => {
-            cuponsResgate = [];
-            snapshot.forEach(doc => {
-                cuponsResgate.push({ id: doc.id, ...doc.data() });
-            });
-            renderizarCuponsResgate();
             atualizarContadores();
         });
     }
@@ -799,7 +785,7 @@
         return { success: true, msg };
     }
 
-    // NOVA FUNÇÃO DE RESGATE: permite qualquer quantidade, 1 ponto = R$10
+    // Função de resgate (qualquer quantidade, 1 ponto = R$10)
     async function resgatarPontos(clienteId) {
         const cliente = clientes.find(c => c.id === clienteId);
         if (!cliente) return alert("Cliente não encontrado.");
@@ -949,7 +935,8 @@
         let totalBilhetes = 0;
         clientes.forEach(c => { if (c.bilhetes) totalBilhetes += c.bilhetes.length; });
         document.getElementById("totalBilhetes").innerText = totalBilhetes;
-        document.getElementById("totalResgates").innerText = cuponsResgate.length;
+        const qtdComPontos = clientes.filter(c => (c.pontosResgataveis || 0) > 0).length;
+        document.getElementById("totalPontosClientes").innerText = qtdComPontos;
     }
 
     function renderizarListaClientes() {
@@ -970,7 +957,7 @@
                     <div class="cliente-detalhes">⭐ Pontos resgatáveis: ${pontos} (1 ponto = R$10)</div>
                     <div class="flex-btns">
                         <button class="secondary btn-editar" data-id="${cli.id}">✏️ Editar</button>
-                        ${pontos >= 1 ? `<button class="success btn-resgatar" data-id="${cli.id}">🎁 Resgatar pontos (R$10 cada)</button>` : ''}
+                        ${pontos >= 1 ? `<button class="success btn-resgatar" data-id="${cli.id}">🎁 Resgatar pontos</button>` : ''}
                         ${isOwner ? `<button class="secondary btn-excluir" data-id="${cli.id}" style="background:#ffccbc;">🗑️ Excluir</button>` : ''}
                     </div>
                 </div>
@@ -984,6 +971,35 @@
         }
     }
 
+    // Nova função: renderizar apenas clientes com pontos > 0
+    function renderizarPontosResgataveis() {
+        const container = document.getElementById("listaPontosContainer");
+        const clientesComPontos = clientes.filter(c => (c.pontosResgataveis || 0) > 0);
+        if (!clientesComPontos.length) {
+            container.innerHTML = '<div class="empty-message">🎉 Nenhum cliente com pontos resgatáveis no momento.</div>';
+            return;
+        }
+        let html = '';
+        clientesComPontos.forEach(cli => {
+            const pontos = cli.pontosResgataveis || 0;
+            const contato = formatarContato(cli.contato);
+            html += `
+                <div class="lista-item">
+                    <div class="cliente-info">🏆 ${escapeHtml(cli.nome)} (ID: ${escapeHtml(cli.id)})</div>
+                    <div class="cliente-detalhes">📞 ${escapeHtml(contato)}</div>
+                    <div class="cliente-detalhes">⭐ Pontos: ${pontos} (R$ ${pontos * 10},00 disponíveis)</div>
+                    <div class="flex-btns">
+                        <button class="success btn-resgatar-pontos" data-id="${cli.id}">🎁 Resgatar pontos</button>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.btn-resgatar-pontos').forEach(btn => {
+            btn.addEventListener('click', () => resgatarPontos(btn.dataset.id));
+        });
+    }
+
     function renderizarTodosCupons() {
         const container = document.getElementById("listaCuponsContainer");
         if (!cupons.length) { container.innerHTML = '<div class="empty-message">Nenhum cupom.</div>'; return; }
@@ -995,26 +1011,6 @@
         container.innerHTML = html;
         if (isOwner) {
             document.querySelectorAll('.btn-del-cupom').forEach(btn => btn.addEventListener('click', () => excluirCupom(btn.dataset.id)));
-        }
-    }
-
-    function renderizarCuponsResgate() {
-        const container = document.getElementById("listaResgatesContainer");
-        if (!cuponsResgate.length) { container.innerHTML = '<div class="empty-message">Nenhum cupom resgatado ainda.</div>'; return; }
-        let html = '';
-        cuponsResgate.forEach(c => {
-            const usado = c.utilizado ? "✅ Utilizado" : "🔵 Disponível";
-            html += `<div class="lista-item">🏆 Cupom: ${escapeHtml(c.codigo)}<br>Cliente: ${escapeHtml(c.clienteNome)} (${escapeHtml(c.clienteId)})<br>Valor: R$ ${c.valor},00 (${c.quantidadePontos || '?'} pontos)<br>Resgatado em: ${new Date(c.dataResgate).toLocaleString()}<br>Status: ${usado}<div class="flex-btns">${isOwner ? `<button class="secondary btn-marcar-usado" data-id="${c.id}">✔️ Marcar como usado</button>` : ''}</div></div>`;
-        });
-        container.innerHTML = html;
-        if (isOwner) {
-            document.querySelectorAll('.btn-marcar-usado').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.dataset.id;
-                    await db.collection("cuponsResgate").doc(id).update({ utilizado: true });
-                    alert("Cupom marcado como utilizado.");
-                });
-            });
         }
     }
 
@@ -1146,7 +1142,7 @@
                 if (targetId === "tab-lista") aplicarOrdenacaoEBusca();
                 if (targetId === "tab-cupons") renderizarTodosCupons();
                 if (targetId === "tab-sorteioAnual") renderizarBilhetes();
-                if (targetId === "tab-cuponsResgate") renderizarCuponsResgate();
+                if (targetId === "tab-pontos") renderizarPontosResgataveis();
             });
         });
 
