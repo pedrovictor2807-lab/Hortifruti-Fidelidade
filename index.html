@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-    <title>Hortifruti - Fidelidade e Sorteios</title>
+    <title>Hortifruti - Fidelidade + Indicação (Ponto vale R$10)</title>
 
     <!-- Firebase SDKs (compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -260,7 +260,6 @@
             .tab-btn { font-size: 0.6rem; padding: 8px 2px; }
         }
 
-        /* Tela de login inicial */
         .login-screen {
             background: white;
             border-radius: 32px;
@@ -283,10 +282,9 @@
 <div class="container">
     <div class="header">
         <h1><span>🌿</span> Hortifruti Cupons <span>🍎</span></h1>
-        <div class="subtitle">🍅 Fidelidade (10 compras = 1 bilhete sorteio R$300) 🎁</div>
+        <div class="subtitle">🍅 Fidelidade + Indicação: indique e ganhe R$10 por ponto (cada bilhete do indicado = 1 ponto)</div>
     </div>
 
-    <!-- Tela de login inicial (visível antes de qualquer login) -->
     <div id="loginScreen" class="login-screen">
         <h2>🔐 Acesso Restrito</h2>
         <p>Apenas vendedores autorizados podem acessar o sistema.</p>
@@ -296,7 +294,6 @@
         <div id="loginMensagem" style="margin-top:12px; color:red; font-size:0.8rem;"></div>
     </div>
 
-    <!-- Conteúdo do sistema (oculto até login) -->
     <div id="sistemaContent" style="display: none;">
         <div class="auth-area">
             <span id="authStatus" style="font-size:0.75rem; color:#33691e;">👤 Vendedor</span>
@@ -310,6 +307,7 @@
             <button class="tab-btn" data-tab="tab-compras">💳 Compras</button>
             <button class="tab-btn" data-tab="tab-gerar">🎫 Cupons Mensais</button>
             <button class="tab-btn" data-tab="tab-cupons">🏷️ Todos Cupons</button>
+            <button class="tab-btn" data-tab="tab-cuponsResgate">🏆 Cupons Resgatados</button>
             <button class="tab-btn" data-tab="tab-sorteio">🍀 Sorteio Mensal</button>
             <button class="tab-btn" data-tab="tab-sorteioAnual">🎁 Sorteio Anual</button>
             <button class="tab-btn" data-tab="tab-importar">📥 Importar</button>
@@ -325,6 +323,8 @@
             <input type="text" id="clienteNome" placeholder="Nome do cliente">
             <label>Contato (telefone/email)</label>
             <input type="text" id="clienteContato" placeholder="(opcional)">
+            <label>Indicado por (ID do cliente que indicou)</label>
+            <input type="text" id="indicadoPor" placeholder="Deixe em branco se não foi indicado">
             <button id="btnSalvarCliente">💾 Salvar</button>
         </div>
 
@@ -372,7 +372,7 @@
             </div>
             <label>Valor da compra (R$)</label>
             <input type="number" id="valorCompra" step="0.01" min="15" placeholder="Ex: 48.00">
-            <small>Cada R$15 = 1 cupom mensal. Compra ≥ R$15 dá 1 marcação. 10 marcações = 1 bilhete anual.</small>
+            <small>Cada R$15 = 1 cupom mensal. Compra ≥ R$15 dá 1 marcação. 10 marcações = 1 bilhete anual + 1 ponto de indicação para quem indicou (se houver).</small>
             <button id="btnRegistrarCompra" class="success">Registrar Compra</button>
             <div id="compraFeedback"></div>
         </div>
@@ -414,6 +414,13 @@
             <div id="listaCuponsContainer">Carregando...</div>
         </div>
 
+        <!-- Painel Cupons Resgatados -->
+        <div id="tab-cuponsResgate" class="panel">
+            <h2>🏆 Cupons Resgatados (R$10 por ponto)</h2>
+            <div class="contador">Total resgatados: <span id="totalResgates">0</span></div>
+            <div id="listaResgatesContainer">Carregando...</div>
+        </div>
+
         <!-- Painel Sorteio Mensal -->
         <div id="tab-sorteio" class="panel">
             <h2>🍀 Sorteio Mensal</h2>
@@ -440,7 +447,7 @@
         <div id="tab-importar" class="panel">
             <h2>📥 Importar</h2>
             <h3>Clientes (JSON)</h3>
-            <textarea id="jsonClientes" rows="4" placeholder='[{"id":"001","nome":"Joao","contato":"99999","marcacoes":3,"bilhetes":[]}]'></textarea>
+            <textarea id="jsonClientes" rows="4" placeholder='[{"id":"001","nome":"Joao","contato":"99999","marcacoes":3,"bilhetes":[],"pontosResgataveis":0,"indicadoPor":""}]'></textarea>
             <button id="btnImportarClientesTexto" class="success">Importar Clientes</button>
             <hr>
             <h3>Cupons Mensais (JSON)</h3>
@@ -497,7 +504,7 @@
     </div>
 </div>
 
-<!-- Modal Login Admin (dono) -->
+<!-- Modal Login Admin -->
 <div id="modalLogin" class="modal">
     <div class="modal-content">
         <h3>🔐 Login do Dono</h3>
@@ -528,12 +535,17 @@
     // ==================== VARIÁVEIS GLOBAIS ====================
     let clientes = [];
     let cupons = [];
+    let cuponsResgate = [];
     let currentSort = "id_desc";
     let searchTerm = "";
     let filteredClients = [];
     let mostrarContatos = true;
     let isOwner = false;
     let currentUser = null;
+
+    let clientesUnsubscribe = null;
+    let cuponsUnsubscribe = null;
+    let resgateUnsubscribe = null;
 
     // ==================== AUTENTICAÇÃO ====================
     const loginScreen = document.getElementById("loginScreen");
@@ -562,6 +574,7 @@
                 aplicarOrdenacaoEBusca();
                 renderizarTodosCupons();
                 renderizarBilhetes();
+                renderizarCuponsResgate();
             }
         } else {
             authSpan.innerHTML = "";
@@ -578,7 +591,6 @@
                 mostrarSistema(true);
                 atualizarInterface();
                 loginMensagem.innerHTML = "";
-                // Iniciar listeners após login
                 iniciarListeners();
             })
             .catch(error => {
@@ -590,15 +602,16 @@
         auth.signOut().then(() => {
             currentUser = null;
             mostrarSistema(false);
-            // Parar listeners (opcional, mas bom)
             if (clientesUnsubscribe) clientesUnsubscribe();
             if (cuponsUnsubscribe) cuponsUnsubscribe();
-            // Limpar dados visuais
+            if (resgateUnsubscribe) resgateUnsubscribe();
             clientes = [];
             cupons = [];
+            cuponsResgate = [];
             document.getElementById("listaClientesContainer").innerHTML = "";
             document.getElementById("listaCuponsContainer").innerHTML = "";
             document.getElementById("listaBilhetesContainer").innerHTML = "";
+            document.getElementById("listaResgatesContainer").innerHTML = "";
         });
     }
 
@@ -609,23 +622,20 @@
                 document.getElementById("modalLogin").style.display = "none";
                 document.getElementById("loginFeedback").innerHTML = "";
                 atualizarInterface();
-                // Recarregar dados com novas permissões
                 aplicarOrdenacaoEBusca();
                 renderizarTodosCupons();
                 renderizarBilhetes();
+                renderizarCuponsResgate();
             })
             .catch(error => {
                 document.getElementById("loginFeedback").innerHTML = `<span style="color:red;">❌ ${error.message}</span>`;
             });
     }
 
-    // Listeners do Firestore
-    let clientesUnsubscribe = null;
-    let cuponsUnsubscribe = null;
-
     function iniciarListeners() {
         if (clientesUnsubscribe) clientesUnsubscribe();
         if (cuponsUnsubscribe) cuponsUnsubscribe();
+        if (resgateUnsubscribe) resgateUnsubscribe();
         clientesUnsubscribe = db.collection("clientes").onSnapshot(snapshot => {
             clientes = [];
             snapshot.forEach(doc => {
@@ -643,16 +653,30 @@
             renderizarTodosCupons();
             atualizarContadores();
         });
+        resgateUnsubscribe = db.collection("cuponsResgate").onSnapshot(snapshot => {
+            cuponsResgate = [];
+            snapshot.forEach(doc => {
+                cuponsResgate.push({ id: doc.id, ...doc.data() });
+            });
+            renderizarCuponsResgate();
+            atualizarContadores();
+        });
     }
 
     // ==================== CRUD CLIENTES ====================
-    async function adicionarCliente(id, nome, contato) {
+    async function adicionarCliente(id, nome, contato, indicadoPor) {
         if (clientes.some(c => c.id === id)) throw new Error("ID já existe.");
+        if (indicadoPor) {
+            const indicadorExists = clientes.some(c => c.id === indicadoPor);
+            if (!indicadorExists) throw new Error("ID do indicador não encontrado.");
+        }
         await db.collection("clientes").doc(id).set({
             nome: nome,
             contato: contato || "",
             marcacoes: 0,
-            bilhetes: []
+            bilhetes: [],
+            pontosResgataveis: 0,
+            indicadoPor: indicadoPor || null
         });
     }
 
@@ -694,46 +718,6 @@
         await db.collection("cupons").doc(idUnico).delete();
     }
 
-    async function processarCompra(clienteId, valor) {
-        const cliente = clientes.find(c => c.id === clienteId);
-        if (!cliente) return { success: false, msg: "Cliente não encontrado." };
-        if (valor < 15) return { success: false, msg: "Valor mínimo R$15." };
-        const qtdCupons = Math.floor(valor / 15);
-        let novosCupons = [];
-        for (let i = 0; i < qtdCupons; i++) {
-            let cod = "MENSAL-" + gerarCodigoAleatorio();
-            while (cupons.some(c => c.codigo === cod)) cod = "MENSAL-" + gerarCodigoAleatorio();
-            novosCupons.push({
-                idUnico: gerarIdUnico(),
-                codigo: cod,
-                clienteId: cliente.id,
-                dataGeracao: new Date().toISOString()
-            });
-        }
-        const batch = db.batch();
-        novosCupons.forEach(cup => batch.set(db.collection("cupons").doc(cup.idUnico), cup));
-        let novasMarcacoes = (cliente.marcacoes || 0) + 1;
-        let bilheteGerado = false;
-        if (novasMarcacoes >= 10) {
-            novasMarcacoes -= 10;
-            bilheteGerado = true;
-            const bilhete = { id: gerarIdUnico(), data: new Date().toISOString() };
-            const bilhetesAtualizados = [...(cliente.bilhetes || []), bilhete];
-            batch.update(db.collection("clientes").doc(cliente.id), {
-                marcacoes: novasMarcacoes,
-                bilhetes: bilhetesAtualizados
-            });
-        } else {
-            batch.update(db.collection("clientes").doc(cliente.id), {
-                marcacoes: novasMarcacoes
-            });
-        }
-        await batch.commit();
-        let msg = `Compra R$ ${valor.toFixed(2)} - ${qtdCupons} cupom(s) mensais. Marcação: ${novasMarcacoes}/10.`;
-        if (bilheteGerado) msg += ` Cartão completo! Bilhete anual gerado.`;
-        return { success: true, msg };
-    }
-
     async function gerarCuponsManuais(clienteId, qtd, codManual) {
         const cli = clientes.find(c => c.id === clienteId);
         if (!cli) return { success: false, msg: "Cliente não encontrado." };
@@ -758,6 +742,107 @@
         return { success: true, msg: `${novos.length} cupom(ns) gerado(s).` };
     }
 
+    // Processar compra com geração de bilhete e ponto de indicação
+    async function processarCompra(clienteId, valor) {
+        const cliente = clientes.find(c => c.id === clienteId);
+        if (!cliente) return { success: false, msg: "Cliente não encontrado." };
+        if (valor < 15) return { success: false, msg: "Valor mínimo R$15." };
+        const qtdCupons = Math.floor(valor / 15);
+        let novosCupons = [];
+        for (let i = 0; i < qtdCupons; i++) {
+            let cod = "MENSAL-" + gerarCodigoAleatorio();
+            while (cupons.some(c => c.codigo === cod)) cod = "MENSAL-" + gerarCodigoAleatorio();
+            novosCupons.push({
+                idUnico: gerarIdUnico(),
+                codigo: cod,
+                clienteId: cliente.id,
+                dataGeracao: new Date().toISOString()
+            });
+        }
+        const batch = db.batch();
+        novosCupons.forEach(cup => batch.set(db.collection("cupons").doc(cup.idUnico), cup));
+        let novasMarcacoes = (cliente.marcacoes || 0) + 1;
+        let bilheteGerado = false;
+        let pontoIndicacaoAdicionado = false;
+        let indicadorId = null;
+
+        if (novasMarcacoes >= 10) {
+            novasMarcacoes -= 10;
+            bilheteGerado = true;
+            const bilhete = { id: gerarIdUnico(), data: new Date().toISOString() };
+            const bilhetesAtualizados = [...(cliente.bilhetes || []), bilhete];
+            batch.update(db.collection("clientes").doc(cliente.id), {
+                marcacoes: novasMarcacoes,
+                bilhetes: bilhetesAtualizados
+            });
+            if (cliente.indicadoPor) {
+                const indicador = clientes.find(c => c.id === cliente.indicadoPor);
+                if (indicador) {
+                    const pontosAtuais = indicador.pontosResgataveis || 0;
+                    batch.update(db.collection("clientes").doc(indicador.id), {
+                        pontosResgataveis: pontosAtuais + 1
+                    });
+                    pontoIndicacaoAdicionado = true;
+                    indicadorId = indicador.id;
+                }
+            }
+        } else {
+            batch.update(db.collection("clientes").doc(cliente.id), {
+                marcacoes: novasMarcacoes
+            });
+        }
+        await batch.commit();
+
+        let msg = `Compra R$ ${valor.toFixed(2)} - ${qtdCupons} cupom(s) mensais. Marcação: ${novasMarcacoes}/10.`;
+        if (bilheteGerado) msg += ` Cartão completo! Bilhete anual gerado.`;
+        if (pontoIndicacaoAdicionado) msg += ` +1 ponto de indicação para o cliente ${indicadorId}.`;
+        return { success: true, msg };
+    }
+
+    // NOVA FUNÇÃO DE RESGATE: permite qualquer quantidade, 1 ponto = R$10
+    async function resgatarPontos(clienteId) {
+        const cliente = clientes.find(c => c.id === clienteId);
+        if (!cliente) return alert("Cliente não encontrado.");
+        const pontosAtuais = cliente.pontosResgataveis || 0;
+        if (pontosAtuais < 1) {
+            alert("Você não tem pontos para resgatar.");
+            return;
+        }
+
+        let quantidade = prompt(`Quantos pontos deseja resgatar? (Você tem ${pontosAtuais} ponto(s). Cada ponto vale R$10,00)`);
+        quantidade = parseInt(quantidade);
+        if (isNaN(quantidade) || quantidade <= 0) {
+            alert("Quantidade inválida.");
+            return;
+        }
+        if (quantidade > pontosAtuais) {
+            alert(`Você só tem ${pontosAtuais} ponto(s). Não pode resgatar mais do que isso.`);
+            return;
+        }
+
+        const valorReais = quantidade * 10;
+        if (!confirm(`Confirmar resgate de ${quantidade} ponto(s) para o cliente ${cliente.nome}? Valor do cupom: R$ ${valorReais},00.`)) return;
+
+        const codigoCupom = "RESGATE-" + gerarCodigoAleatorio() + "-" + Date.now().toString().slice(-6);
+        const novoCupomResgate = {
+            codigo: codigoCupom,
+            clienteId: cliente.id,
+            clienteNome: cliente.nome,
+            valor: valorReais,
+            quantidadePontos: quantidade,
+            dataResgate: new Date().toISOString(),
+            utilizado: false
+        };
+        const batch = db.batch();
+        batch.set(db.collection("cuponsResgate").doc(), novoCupomResgate);
+        batch.update(db.collection("clientes").doc(cliente.id), {
+            pontosResgataveis: pontosAtuais - quantidade
+        });
+        await batch.commit();
+        alert(`Cupom gerado: ${codigoCupom} - Valor: R$ ${valorReais},00. Apresente na loja.`);
+    }
+
+    // BILHETES
     async function adicionarBilheteManual(clienteId) {
         const cli = clientes.find(c => c.id === clienteId);
         if (!cli) return alert("Cliente não encontrado.");
@@ -801,6 +886,8 @@
         const batch = db.batch();
         clientes.forEach(c => batch.delete(db.collection("clientes").doc(c.id)));
         cupons.forEach(c => batch.delete(db.collection("cupons").doc(c.idUnico)));
+        const resgatesSnap = await db.collection("cuponsResgate").get();
+        resgatesSnap.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
     }
 
@@ -821,12 +908,7 @@
             const dataPartes = partes[0].split('/');
             const horaPartes = partes[1].split(':');
             if (dataPartes.length === 3 && horaPartes.length >= 2) {
-                const dia = parseInt(dataPartes[0]);
-                const mes = parseInt(dataPartes[1]) - 1;
-                const ano = parseInt(dataPartes[2]);
-                const hora = parseInt(horaPartes[0]);
-                const minuto = parseInt(horaPartes[1]);
-                const segundo = horaPartes[2] ? parseInt(horaPartes[2]) : 0;
+                const dia = parseInt(dataPartes[0]), mes = parseInt(dataPartes[1])-1, ano = parseInt(dataPartes[2]), hora = parseInt(horaPartes[0]), minuto = parseInt(horaPartes[1]), segundo = horaPartes[2] ? parseInt(horaPartes[2]) : 0;
                 data = new Date(ano, mes, dia, hora, minuto, segundo);
                 if (!isNaN(data.getTime())) return data.toISOString();
             }
@@ -867,6 +949,7 @@
         let totalBilhetes = 0;
         clientes.forEach(c => { if (c.bilhetes) totalBilhetes += c.bilhetes.length; });
         document.getElementById("totalBilhetes").innerText = totalBilhetes;
+        document.getElementById("totalResgates").innerText = cuponsResgate.length;
     }
 
     function renderizarListaClientes() {
@@ -877,13 +960,17 @@
             const qtd = cupons.filter(c => c.clienteId === cli.id).length;
             const contato = formatarContato(cli.contato);
             const progresso = "🟢".repeat(cli.marcacoes) + "⚪".repeat(10 - cli.marcacoes);
+            const pontos = cli.pontosResgataveis || 0;
+            const indicadoPor = cli.indicadoPor ? ` (Indicado por: ${cli.indicadoPor})` : '';
             html += `
                 <div class="lista-item">
-                    <div class="cliente-info">🍅 ID: ${escapeHtml(cli.id)} - ${escapeHtml(cli.nome)}</div>
+                    <div class="cliente-info">🍅 ID: ${escapeHtml(cli.id)} - ${escapeHtml(cli.nome)}${indicadoPor}</div>
                     <div class="cliente-detalhes">📞 ${escapeHtml(contato)} | 🎫 Cupons: ${qtd}</div>
                     <div class="cliente-detalhes">🏷️ ${progresso} (${cli.marcacoes}/10) | 🎁 Bilhetes: ${cli.bilhetes?.length || 0}</div>
+                    <div class="cliente-detalhes">⭐ Pontos resgatáveis: ${pontos} (1 ponto = R$10)</div>
                     <div class="flex-btns">
                         <button class="secondary btn-editar" data-id="${cli.id}">✏️ Editar</button>
+                        ${pontos >= 1 ? `<button class="success btn-resgatar" data-id="${cli.id}">🎁 Resgatar pontos (R$10 cada)</button>` : ''}
                         ${isOwner ? `<button class="secondary btn-excluir" data-id="${cli.id}" style="background:#ffccbc;">🗑️ Excluir</button>` : ''}
                     </div>
                 </div>
@@ -891,6 +978,7 @@
         });
         container.innerHTML = html;
         document.querySelectorAll('.btn-editar').forEach(btn => btn.addEventListener('click', () => abrirEdicao(btn.dataset.id)));
+        document.querySelectorAll('.btn-resgatar').forEach(btn => btn.addEventListener('click', () => resgatarPontos(btn.dataset.id)));
         if (isOwner) {
             document.querySelectorAll('.btn-excluir').forEach(btn => btn.addEventListener('click', () => excluirCliente(btn.dataset.id)));
         }
@@ -907,6 +995,26 @@
         container.innerHTML = html;
         if (isOwner) {
             document.querySelectorAll('.btn-del-cupom').forEach(btn => btn.addEventListener('click', () => excluirCupom(btn.dataset.id)));
+        }
+    }
+
+    function renderizarCuponsResgate() {
+        const container = document.getElementById("listaResgatesContainer");
+        if (!cuponsResgate.length) { container.innerHTML = '<div class="empty-message">Nenhum cupom resgatado ainda.</div>'; return; }
+        let html = '';
+        cuponsResgate.forEach(c => {
+            const usado = c.utilizado ? "✅ Utilizado" : "🔵 Disponível";
+            html += `<div class="lista-item">🏆 Cupom: ${escapeHtml(c.codigo)}<br>Cliente: ${escapeHtml(c.clienteNome)} (${escapeHtml(c.clienteId)})<br>Valor: R$ ${c.valor},00 (${c.quantidadePontos || '?'} pontos)<br>Resgatado em: ${new Date(c.dataResgate).toLocaleString()}<br>Status: ${usado}<div class="flex-btns">${isOwner ? `<button class="secondary btn-marcar-usado" data-id="${c.id}">✔️ Marcar como usado</button>` : ''}</div></div>`;
+        });
+        container.innerHTML = html;
+        if (isOwner) {
+            document.querySelectorAll('.btn-marcar-usado').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    await db.collection("cuponsResgate").doc(id).update({ utilizado: true });
+                    alert("Cupom marcado como utilizado.");
+                });
+            });
         }
     }
 
@@ -1002,7 +1110,6 @@
 
     // ==================== EVENTOS E INICIALIZAÇÃO ====================
     document.addEventListener("DOMContentLoaded", () => {
-        // Login inicial
         document.getElementById("btnLoginVendedor").addEventListener("click", () => {
             const email = document.getElementById("loginEmailVendedor").value.trim();
             const senha = document.getElementById("loginSenhaVendedor").value;
@@ -1010,13 +1117,8 @@
             else loginMensagem.innerHTML = "Preencha e-mail e senha.";
         });
 
-        // Botões do sistema
-        document.getElementById("btnLoginAdmin").addEventListener("click", () => {
-            document.getElementById("modalLogin").style.display = "flex";
-        });
-        document.getElementById("btnLoginCancelar").addEventListener("click", () => {
-            document.getElementById("modalLogin").style.display = "none";
-        });
+        document.getElementById("btnLoginAdmin").addEventListener("click", () => document.getElementById("modalLogin").style.display = "flex");
+        document.getElementById("btnLoginCancelar").addEventListener("click", () => document.getElementById("modalLogin").style.display = "none");
         document.getElementById("btnLoginConfirmar").addEventListener("click", () => {
             const email = document.getElementById("loginEmail").value.trim();
             const senha = document.getElementById("loginSenha").value;
@@ -1044,6 +1146,7 @@
                 if (targetId === "tab-lista") aplicarOrdenacaoEBusca();
                 if (targetId === "tab-cupons") renderizarTodosCupons();
                 if (targetId === "tab-sorteioAnual") renderizarBilhetes();
+                if (targetId === "tab-cuponsResgate") renderizarCuponsResgate();
             });
         });
 
@@ -1051,12 +1154,14 @@
             const id = document.getElementById("clienteId").value.trim();
             const nome = document.getElementById("clienteNome").value.trim();
             const contato = document.getElementById("clienteContato").value.trim();
+            const indicadoPor = document.getElementById("indicadoPor").value.trim();
             if (!id || !nome) return alert("ID e Nome obrigatórios.");
             try {
-                await adicionarCliente(id, nome, contato);
+                await adicionarCliente(id, nome, contato, indicadoPor);
                 document.getElementById("clienteId").value = "";
                 document.getElementById("clienteNome").value = "";
                 document.getElementById("clienteContato").value = "";
+                document.getElementById("indicadoPor").value = "";
                 alert("Cliente cadastrado.");
             } catch (e) {
                 alert(e.message);
@@ -1153,10 +1258,11 @@
             });
         });
 
+        // Exportações
         document.getElementById("btnExportarClientesCSV").addEventListener("click", () => {
             if (!clientes.length) return alert("Sem clientes.");
-            const headers = ["ID","Nome","Contato","Marcacoes","Bilhetes"];
-            const rows = clientes.map(c => [c.id, c.nome, c.contato || "", c.marcacoes, c.bilhetes?.length || 0]);
+            const headers = ["ID","Nome","Contato","Marcacoes","Bilhetes","PontosResgataveis","IndicadoPor"];
+            const rows = clientes.map(c => [c.id, c.nome, c.contato || "", c.marcacoes, c.bilhetes?.length || 0, c.pontosResgataveis || 0, c.indicadoPor || ""]);
             const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
             mostrarCSV("Clientes CSV", csv);
         });
@@ -1183,6 +1289,7 @@
         });
         document.getElementById("btnFecharModal").addEventListener("click", () => document.getElementById("modalCSV").style.display = "none");
 
+        // Importações
         document.getElementById("btnImportarClientesTexto").addEventListener("click", async () => {
             try {
                 const dados = JSON.parse(document.getElementById("jsonClientes").value);
@@ -1193,9 +1300,11 @@
                     if (item.id && item.nome) {
                         batch.set(db.collection("clientes").doc(String(item.id)), {
                             nome: String(item.nome),
-                            contato: item.contato !== undefined ? String(item.contato) : "",
-                            marcacoes: item.marcacoes !== undefined ? item.marcacoes : 0,
-                            bilhetes: item.bilhetes || []
+                            contato: item.contato || "",
+                            marcacoes: item.marcacoes || 0,
+                            bilhetes: item.bilhetes || [],
+                            pontosResgataveis: item.pontosResgataveis || 0,
+                            indicadoPor: item.indicadoPor || null
                         });
                         count++;
                     }
@@ -1243,7 +1352,9 @@
                                     nome: String(item.nome),
                                     contato: item.contato || "",
                                     marcacoes: item.marcacoes || 0,
-                                    bilhetes: item.bilhetes || []
+                                    bilhetes: item.bilhetes || [],
+                                    pontosResgataveis: item.pontosResgataveis || 0,
+                                    indicadoPor: item.indicadoPor || null
                                 });
                                 count++;
                             }
