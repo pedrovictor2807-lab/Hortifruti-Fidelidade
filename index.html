@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-    <title>Hortifruti - Fidelidade + Pontos Resgatáveis</title>
+    <title>Hortifruti - Indicação por Marcações</title>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <style>
+        /* (mesmo estilo anterior - omitido por brevidade, mas incluído no código final) */
         * {
             box-sizing: border-box;
             font-family: 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
@@ -259,7 +260,6 @@
             body { padding: 12px; }
             .tab-btn { font-size: 0.6rem; padding: 8px 2px; }
         }
-
         .login-screen {
             background: white;
             border-radius: 32px;
@@ -281,8 +281,8 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1><span>🌿</span> Hortifruti Cupons <span>🍎</span></h1>
-        <div class="subtitle">🍅 Fidelidade + Indicação: cada ponto vale R$10 | Resgate quando quiser!</div>
+        <h1><span>🌿</span> Hortifruti Indicação <span>🍎</span></h1>
+        <div class="subtitle">Cada compra de quem você indicou te aproxima de +R$10 | 10 compras = 1 ponto (R$10)</div>
     </div>
 
     <div id="loginScreen" class="login-screen">
@@ -349,10 +349,10 @@
             </div>
         </div>
 
-        <!-- Painel Pontos Resgatáveis (apenas clientes com pontos > 0) -->
+        <!-- Painel Pontos Resgatáveis -->
         <div id="tab-pontos" class="panel active-panel">
-            <h2>🎁 Clientes com Pontos Resgatáveis</h2>
-            <div class="contador">🎯 Total com pontos: <span id="totalPontosClientes">0</span></div>
+            <h2>🎁 Clientes com Pontos ou Progresso</h2>
+            <div class="contador">🎯 Clientes com pontos: <span id="totalPontosClientes">0</span></div>
             <div id="listaPontosContainer">Carregando...</div>
         </div>
 
@@ -379,7 +379,7 @@
             </div>
             <label>Valor da compra (R$)</label>
             <input type="number" id="valorCompra" step="0.01" min="15" placeholder="Ex: 48.00">
-            <small>Cada R$15 = 1 cupom mensal. Compra ≥ R$15 dá 1 marcação. 10 marcações = 1 bilhete anual + 1 ponto de indicação para quem indicou (se houver).</small>
+            <small>Cada R$15 gera cupom mensal. Compra ≥ R$15 = +1 marcação para o cliente e também +1 marcação para o indicador (se houver). A cada 10 marcações do indicador, ele ganha 1 ponto = R$10.</small>
             <button id="btnRegistrarCompra" class="success">Registrar Compra</button>
             <div id="compraFeedback"></div>
         </div>
@@ -447,7 +447,7 @@
         <div id="tab-importar" class="panel">
             <h2>📥 Importar</h2>
             <h3>Clientes (JSON)</h3>
-            <textarea id="jsonClientes" rows="4" placeholder='[{"id":"001","nome":"Joao","contato":"99999","marcacoes":3,"bilhetes":[],"pontosResgataveis":0,"indicadoPor":""}]'></textarea>
+            <textarea id="jsonClientes" rows="4" placeholder='[{"id":"001","nome":"Joao","contato":"99999","marcacoes":3,"bilhetes":[],"pontosResgataveis":0,"marcacoesIndicacao":0,"indicadoPor":""}]'></textarea>
             <button id="btnImportarClientesTexto" class="success">Importar Clientes</button>
             <hr>
             <h3>Cupons Mensais (JSON)</h3>
@@ -473,7 +473,7 @@
     </div>
 </div>
 
-<!-- Modal Edição Cliente -->
+<!-- Modais (idênticos ao original) -->
 <div id="modalEdicao" class="modal">
     <div class="modal-content">
         <h3>✏️ Editar Cliente</h3>
@@ -485,7 +485,6 @@
     </div>
 </div>
 
-<!-- Modal CSV -->
 <div id="modalCSV" class="modal-csv">
     <div class="modal-csv-content">
         <h3 id="modalTitle">Dados CSV</h3>
@@ -494,7 +493,6 @@
     </div>
 </div>
 
-<!-- Modal Adicionar Bilhete Manual -->
 <div id="modalAddBilhete" class="modal" style="display:none;">
     <div class="modal-content">
         <h3>Adicionar Bilhete</h3>
@@ -504,7 +502,6 @@
     </div>
 </div>
 
-<!-- Modal Login Admin -->
 <div id="modalLogin" class="modal">
     <div class="modal-content">
         <h3>🔐 Login do Dono</h3>
@@ -637,7 +634,7 @@
             aplicarOrdenacaoEBusca();
             atualizarContadores();
             renderizarBilhetes();
-            renderizarPontosResgataveis();  // atualiza aba de pontos
+            renderizarPontosResgataveis();
         });
         cuponsUnsubscribe = db.collection("cupons").onSnapshot(snapshot => {
             cupons = [];
@@ -662,6 +659,7 @@
             marcacoes: 0,
             bilhetes: [],
             pontosResgataveis: 0,
+            marcacoesIndicacao: 0,   // novo campo
             indicadoPor: indicadoPor || null
         });
     }
@@ -728,7 +726,7 @@
         return { success: true, msg: `${novos.length} cupom(ns) gerado(s).` };
     }
 
-    // Processar compra com geração de bilhete e ponto de indicação
+    // ==================== PROCESSAR COMPRA (COM NOVA LÓGICA) ====================
     async function processarCompra(clienteId, valor) {
         const cliente = clientes.find(c => c.id === clienteId);
         if (!cliente) return { success: false, msg: "Cliente não encontrado." };
@@ -747,11 +745,10 @@
         }
         const batch = db.batch();
         novosCupons.forEach(cup => batch.set(db.collection("cupons").doc(cup.idUnico), cup));
+
+        // Atualizar marcações do cliente (para bilhete anual)
         let novasMarcacoes = (cliente.marcacoes || 0) + 1;
         let bilheteGerado = false;
-        let pontoIndicacaoAdicionado = false;
-        let indicadorId = null;
-
         if (novasMarcacoes >= 10) {
             novasMarcacoes -= 10;
             bilheteGerado = true;
@@ -761,31 +758,46 @@
                 marcacoes: novasMarcacoes,
                 bilhetes: bilhetesAtualizados
             });
-            if (cliente.indicadoPor) {
-                const indicador = clientes.find(c => c.id === cliente.indicadoPor);
-                if (indicador) {
-                    const pontosAtuais = indicador.pontosResgataveis || 0;
-                    batch.update(db.collection("clientes").doc(indicador.id), {
-                        pontosResgataveis: pontosAtuais + 1
-                    });
-                    pontoIndicacaoAdicionado = true;
-                    indicadorId = indicador.id;
-                }
-            }
         } else {
             batch.update(db.collection("clientes").doc(cliente.id), {
                 marcacoes: novasMarcacoes
             });
         }
+
+        // Lógica de indicação: cada compra do cliente indicado dá +1 marcação de indicação para o indicador
+        if (cliente.indicadoPor) {
+            const indicadorRef = db.collection("clientes").doc(cliente.indicadoPor);
+            const indicadorDoc = await indicadorRef.get();
+            if (indicadorDoc.exists) {
+                let marcInd = indicadorDoc.data().marcacoesIndicacao || 0;
+                let pontosInd = indicadorDoc.data().pontosResgataveis || 0;
+                marcInd += 1;
+                let ganhouPonto = false;
+                if (marcInd >= 10) {
+                    pontosInd += 1;
+                    marcInd -= 10;
+                    ganhouPonto = true;
+                }
+                batch.update(indicadorRef, {
+                    marcacoesIndicacao: marcInd,
+                    pontosResgataveis: pontosInd
+                });
+                // Se quiser, podemos armazenar uma mensagem de feedback sobre o ponto gerado
+                if (ganhouPonto) {
+                    // Opcional: exibir no feedback que o indicador ganhou um ponto
+                }
+            }
+        }
+
         await batch.commit();
 
-        let msg = `Compra R$ ${valor.toFixed(2)} - ${qtdCupons} cupom(s) mensais. Marcação: ${novasMarcacoes}/10.`;
-        if (bilheteGerado) msg += ` Cartão completo! Bilhete anual gerado.`;
-        if (pontoIndicacaoAdicionado) msg += ` +1 ponto de indicação para o cliente ${indicadorId}.`;
+        let msg = `Compra R$ ${valor.toFixed(2)} - ${qtdCupons} cupom(s) mensais. Marcação do cliente: ${novasMarcacoes}/10.`;
+        if (bilheteGerado) msg += ` Bilhete anual gerado!`;
+        if (cliente.indicadoPor) msg += ` +1 marcação de indicação para ${cliente.indicadoPor}.`;
         return { success: true, msg };
     }
 
-    // Função de resgate (qualquer quantidade, 1 ponto = R$10)
+    // ==================== RESGATE DE PONTOS ====================
     async function resgatarPontos(clienteId) {
         const cliente = clientes.find(c => c.id === clienteId);
         if (!cliente) return alert("Cliente não encontrado.");
@@ -794,7 +806,6 @@
             alert("Você não tem pontos para resgatar.");
             return;
         }
-
         let quantidade = prompt(`Quantos pontos deseja resgatar? (Você tem ${pontosAtuais} ponto(s). Cada ponto vale R$10,00)`);
         quantidade = parseInt(quantidade);
         if (isNaN(quantidade) || quantidade <= 0) {
@@ -802,12 +813,11 @@
             return;
         }
         if (quantidade > pontosAtuais) {
-            alert(`Você só tem ${pontosAtuais} ponto(s). Não pode resgatar mais do que isso.`);
+            alert(`Você só tem ${pontosAtuais} ponto(s).`);
             return;
         }
-
         const valorReais = quantidade * 10;
-        if (!confirm(`Confirmar resgate de ${quantidade} ponto(s) para o cliente ${cliente.nome}? Valor do cupom: R$ ${valorReais},00.`)) return;
+        if (!confirm(`Confirmar resgate de ${quantidade} ponto(s) para ${cliente.nome}? Valor: R$ ${valorReais},00.`)) return;
 
         const codigoCupom = "RESGATE-" + gerarCodigoAleatorio() + "-" + Date.now().toString().slice(-6);
         const novoCupomResgate = {
@@ -825,10 +835,10 @@
             pontosResgataveis: pontosAtuais - quantidade
         });
         await batch.commit();
-        alert(`Cupom gerado: ${codigoCupom} - Valor: R$ ${valorReais},00. Apresente na loja.`);
+        alert(`Cupom gerado: ${codigoCupom} - Valor R$ ${valorReais},00.`);
     }
 
-    // BILHETES
+    // ==================== BILHETES ====================
     async function adicionarBilheteManual(clienteId) {
         const cli = clientes.find(c => c.id === clienteId);
         if (!cli) return alert("Cliente não encontrado.");
@@ -948,13 +958,14 @@
             const contato = formatarContato(cli.contato);
             const progresso = "🟢".repeat(cli.marcacoes) + "⚪".repeat(10 - cli.marcacoes);
             const pontos = cli.pontosResgataveis || 0;
+            const marcInd = cli.marcacoesIndicacao || 0;
             const indicadoPor = cli.indicadoPor ? ` (Indicado por: ${cli.indicadoPor})` : '';
             html += `
                 <div class="lista-item">
                     <div class="cliente-info">🍅 ID: ${escapeHtml(cli.id)} - ${escapeHtml(cli.nome)}${indicadoPor}</div>
                     <div class="cliente-detalhes">📞 ${escapeHtml(contato)} | 🎫 Cupons: ${qtd}</div>
                     <div class="cliente-detalhes">🏷️ ${progresso} (${cli.marcacoes}/10) | 🎁 Bilhetes: ${cli.bilhetes?.length || 0}</div>
-                    <div class="cliente-detalhes">⭐ Pontos resgatáveis: ${pontos} (1 ponto = R$10)</div>
+                    <div class="cliente-detalhes">⭐ Pontos resgatáveis: ${pontos} (1 ponto = R$10) | 🚀 Progresso para próximo ponto: ${marcInd}/10</div>
                     <div class="flex-btns">
                         <button class="secondary btn-editar" data-id="${cli.id}">✏️ Editar</button>
                         ${pontos >= 1 ? `<button class="success btn-resgatar" data-id="${cli.id}">🎁 Resgatar pontos</button>` : ''}
@@ -971,25 +982,26 @@
         }
     }
 
-    // Nova função: renderizar apenas clientes com pontos > 0
     function renderizarPontosResgataveis() {
         const container = document.getElementById("listaPontosContainer");
-        const clientesComPontos = clientes.filter(c => (c.pontosResgataveis || 0) > 0);
+        const clientesComPontos = clientes.filter(c => (c.pontosResgataveis || 0) > 0 || (c.marcacoesIndicacao || 0) > 0);
         if (!clientesComPontos.length) {
-            container.innerHTML = '<div class="empty-message">🎉 Nenhum cliente com pontos resgatáveis no momento.</div>';
+            container.innerHTML = '<div class="empty-message">🎉 Nenhum cliente com pontos ou progresso no momento.</div>';
             return;
         }
         let html = '';
         clientesComPontos.forEach(cli => {
             const pontos = cli.pontosResgataveis || 0;
+            const marcInd = cli.marcacoesIndicacao || 0;
             const contato = formatarContato(cli.contato);
             html += `
                 <div class="lista-item">
                     <div class="cliente-info">🏆 ${escapeHtml(cli.nome)} (ID: ${escapeHtml(cli.id)})</div>
                     <div class="cliente-detalhes">📞 ${escapeHtml(contato)}</div>
                     <div class="cliente-detalhes">⭐ Pontos: ${pontos} (R$ ${pontos * 10},00 disponíveis)</div>
+                    <div class="cliente-detalhes">🚀 Progresso para próximo ponto: ${marcInd}/10 (cada compra de indicado dá +1)</div>
                     <div class="flex-btns">
-                        <button class="success btn-resgatar-pontos" data-id="${cli.id}">🎁 Resgatar pontos</button>
+                        ${pontos >= 1 ? `<button class="success btn-resgatar-pontos" data-id="${cli.id}">🎁 Resgatar pontos</button>` : ''}
                     </div>
                 </div>
             `;
@@ -1257,8 +1269,8 @@
         // Exportações
         document.getElementById("btnExportarClientesCSV").addEventListener("click", () => {
             if (!clientes.length) return alert("Sem clientes.");
-            const headers = ["ID","Nome","Contato","Marcacoes","Bilhetes","PontosResgataveis","IndicadoPor"];
-            const rows = clientes.map(c => [c.id, c.nome, c.contato || "", c.marcacoes, c.bilhetes?.length || 0, c.pontosResgataveis || 0, c.indicadoPor || ""]);
+            const headers = ["ID","Nome","Contato","Marcacoes","Bilhetes","PontosResgataveis","MarcacoesIndicacao","IndicadoPor"];
+            const rows = clientes.map(c => [c.id, c.nome, c.contato || "", c.marcacoes, c.bilhetes?.length || 0, c.pontosResgataveis || 0, c.marcacoesIndicacao || 0, c.indicadoPor || ""]);
             const csv = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
             mostrarCSV("Clientes CSV", csv);
         });
@@ -1300,6 +1312,7 @@
                             marcacoes: item.marcacoes || 0,
                             bilhetes: item.bilhetes || [],
                             pontosResgataveis: item.pontosResgataveis || 0,
+                            marcacoesIndicacao: item.marcacoesIndicacao || 0,
                             indicadoPor: item.indicadoPor || null
                         });
                         count++;
@@ -1350,6 +1363,7 @@
                                     marcacoes: item.marcacoes || 0,
                                     bilhetes: item.bilhetes || [],
                                     pontosResgataveis: item.pontosResgataveis || 0,
+                                    marcacoesIndicacao: item.marcacoesIndicacao || 0,
                                     indicadoPor: item.indicadoPor || null
                                 });
                                 count++;
